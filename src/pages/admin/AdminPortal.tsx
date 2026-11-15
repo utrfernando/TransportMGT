@@ -15,7 +15,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { AccountActions, AccountModal, statusBadge, useAccountStatuses, type AccountTarget } from '../../components/admin/PortalAccounts';
+import { AccountActions, AccountModal, DriverAccountsList, statusBadge, useAccountStatuses, type AccountTarget } from '../../components/admin/PortalAccounts';
 
 interface Stu { id: string; full_name: string; student_code: string; guardian_name: string; guardian_phone: string; status: string }
 interface Cus { id: string; full_name: string; phone: string }
@@ -185,6 +185,8 @@ const AdminPortal: React.FC = () => {
               <ul className="mt-2 flex flex-wrap gap-2">{g.links.map(l => <li key={l.id} className="inline-flex items-center gap-1 rounded-full bg-mint-50 text-mint-800 text-xs font-bold pl-3 pr-1 py-1">{target(l)}<button aria-label={`Remove access to ${target(l)}`} title="Remove access to this record" onClick={() => setRevokeLink(l)} className="p-1 rounded-full hover:bg-mint-100 text-red-500"><UserX size={13} /></button></li>)}</ul>
               <div className="mt-2 -ml-2"><AccountActions userId={g.user_id} email={g.email ?? ''} status={statuses.data[g.user_id]} onChanged={statuses.reload} /></div>
             </div>))}</div>)}
+
+        <DriverAccountsList />
 
         <h2 className="font-display text-lg font-bold text-ink-900 mb-3">Access codes issued</h2>
         {data.data.invites.length === 0 ? <p className="text-sm text-ink-500">No codes issued yet.</p> : (

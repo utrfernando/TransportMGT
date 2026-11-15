@@ -245,3 +245,30 @@ export const DriverAccountCard: React.FC<{ driverId: string; defaults: AccountTa
     </div>
   );
 };
+
+// ------------------------------------------------------------------------- all driver logins
+interface DriverLogin { id: string; full_name: string; status: string; user_id: string }
+
+/** Every driver who has a login, with sign-in status and the same controls as the driver's own page. */
+export const DriverAccountsList: React.FC = () => {
+  const list = useQuery(async () => {
+    const { data, error } = await supabase.from('drivers').select('id,full_name,status,user_id').not('user_id', 'is', null).eq('is_archived', false).order('full_name');
+    if (error) throw new Error(friendlyError(error));
+    return (data ?? []) as DriverLogin[];
+  }, [] as DriverLogin[], []);
+  const statuses = useAccountStatuses(list.data.map(d => d.user_id));
+  return (
+    <>
+      <h2 className="font-display text-lg font-bold text-ink-900 mb-1">Driver accounts</h2>
+      <p className="text-sm text-ink-500 mb-3">Drivers see only the routes, vehicles and trips assigned to them. To create one, open the driver under Drivers.</p>
+      {list.error ? <p className="text-sm text-red-600 mb-8">{list.error}</p> : list.loading ? <p className="text-sm text-ink-400 mb-8">Loading…</p> : list.data.length === 0
+        ? <p className="text-sm text-ink-500 mb-8">No driver has a login yet.</p>
+        : <div className="mb-8 space-y-3">{list.data.map(d => { const st = statuses.data[d.user_id]; return (
+          <div key={d.id} className="rounded-3xl border border-ink-100 bg-white p-4 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="min-w-0"><b className="text-ink-900">{d.full_name}</b> <span className="text-ink-500 break-all">{st?.email ?? ''}</span></div>{statusBadge(st)}</div>
+            <p className="text-xs text-ink-400 mt-0.5">{st?.last_sign_in_at ? `Last sign-in ${format(new Date(st.last_sign_in_at), 'dd MMM yyyy, HH:mm')}` : 'Has not signed in yet'}</p>
+            <div className="mt-2 -ml-2"><AccountActions userId={d.user_id} email={st?.email ?? ''} status={st} onChanged={statuses.reload} /></div>
+          </div>); })}</div>}
+    </>
+  );
+};
