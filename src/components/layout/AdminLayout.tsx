@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import { BarChart3, ScrollText, TrendingUp, CreditCard, Fuel, Wrench, FileText, Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -110,7 +110,7 @@ const AdminLayout: React.FC = () => {
             <button onClick={async () => { await signOut(); navigate('/login'); }} className="p-2 rounded-full hover:bg-ink-100 text-ink-600" aria-label="Log out" title="Log out"><LogOut size={20} /></button>
           </div>
         </header>
-        <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto"><Outlet /></main>
+        <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto"><Suspense fallback={<div className="py-24 text-center font-bold text-ink-400" role="status">Loading…</div>}><Outlet /></Suspense></main>
       </div>
     </div>
   );

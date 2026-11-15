@@ -30,11 +30,19 @@ export const Label: React.FC<React.LabelHTMLAttributes<HTMLLabelElement>> = ({ c
   <label className={cn('mb-1.5 block text-sm font-bold text-ink-700', className)} {...props} />
 );
 
-export const Field: React.FC<{ label: string; error?: string; hint?: string; children: React.ReactNode; className?: string }> = ({ label, error, hint, children, className }) => (
-  <div className={className}>
-    <Label>{label}</Label>
-    {children}
-    {hint && !error && <p className="mt-1 text-xs text-ink-400">{hint}</p>}
-    {error && <p className="mt-1 text-xs font-semibold text-red-500">{error}</p>}
-  </div>
-);
+/** Label + control + hint/error. The label is linked to the control (click-to-focus, screen readers) and errors are announced. */
+export const Field: React.FC<{ label: string; error?: string; hint?: string; children: React.ReactNode; className?: string }> = ({ label, error, hint, children, className }) => {
+  const id = React.useId();
+  const msgId = `${id}-msg`;
+  const control = React.isValidElement<Record<string, unknown>>(children) && typeof children.type !== 'string'
+    ? React.cloneElement(children, { id: children.props.id ?? id, 'aria-invalid': error ? true : undefined, 'aria-describedby': error || hint ? msgId : undefined })
+    : children;
+  return (
+    <div className={className}>
+      <Label htmlFor={id}>{label}</Label>
+      {control}
+      {hint && !error && <p id={msgId} className="mt-1 text-xs text-ink-400">{hint}</p>}
+      {error && <p id={msgId} role="alert" className="mt-1 text-xs font-semibold text-red-500">{error}</p>}
+    </div>
+  );
+};

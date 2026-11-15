@@ -6,7 +6,7 @@ import { daysUntil } from '../../lib/db';
 import { format } from 'date-fns';
 
 export const SearchBox: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder }) => (
-  <div className="relative flex-1 min-w-[220px]">
+  <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[220px]">
     <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400" />
     <Input className="pl-10" placeholder={placeholder ?? 'Search…'} value={value} onChange={e => onChange(e.target.value)} />
   </div>

@@ -67,7 +67,7 @@ const AdminReports: React.FC = () => {
               <Button onClick={() => run()} loading={loading}><Play size={16} /> Run report</Button>
               {showing && <>
                 <Button variant="outline" onClick={() => exportPdf(active.title, ran!.period, res!, settings)}><FileText size={16} /> PDF</Button>
-                <Button variant="outline" onClick={() => exportExcel(active.title, ran!.period, res!, settings)}><FileSpreadsheet size={16} /> Excel</Button>
+                <Button variant="outline" onClick={() => exportExcel(active.title, ran!.period, res!, settings).catch(e => toast.error(e instanceof Error ? e.message : 'Excel export failed'))}><FileSpreadsheet size={16} /> Excel</Button>
               </>}
             </div>
             {active.needsRange && <div className="flex flex-wrap gap-2 mt-3">{PRESETS.map(([l, fn]) => <button key={l} onClick={() => { const [a, b] = fn(); setFrom(a); setTo(b); }} className="px-3 py-1 rounded-full text-xs font-bold border border-ink-200 text-ink-600 hover:bg-ink-100">{l}</button>)}</div>}

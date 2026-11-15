@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import writeXlsxFile from 'write-excel-file/browser';
 import { format } from 'date-fns';
 import type { Cell, ReportResult } from './reports';
 import type { PublicSettings } from './supabase';
@@ -42,21 +42,22 @@ export function exportPdf(title: string, period: string, res: ReportResult, biz:
   doc.save(`${safeName(title)}-${format(new Date(), 'yyyyMMdd')}.pdf`);
 }
 
-export function exportExcel(title: string, period: string, res: ReportResult, biz: PublicSettings) {
-  const header = [[biz.business_name], [title], [period], [`Currency: ${biz.currency}`], []];
-  const aoa: Cell[][] = [...header, res.columns.map(c => c.label), ...res.rows.map(r => res.columns.map(c => r[c.key] ?? null))];
-  if (res.totals) aoa.push(res.columns.map(c => res.totals![c.key] ?? null));
-  if (res.notes?.length) { aoa.push([]); res.notes.forEach(n => aoa.push([n])); }
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+export async function exportExcel(title: string, period: string, res: ReportResult, biz: PublicSettings) {
+  type XCell = string | number | null | { value: string | number | null; format?: string; fontWeight?: 'bold'; align?: 'right' | 'left' };
+  const bold = (v: string): XCell => ({ value: v, fontWeight: 'bold' });
+  const cellFor = (v: Cell, money?: boolean, isTotal?: boolean): XCell => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return { value: v, ...(money ? { format: '#,##0.00' } : {}), ...(isTotal ? { fontWeight: 'bold' as const } : {}) };
+    return isTotal ? bold(v) : v;
+  };
+  const data: XCell[][] = [
+    [bold(biz.business_name)], [bold(title)], [period], [`Currency: ${biz.currency}`], [],
+    res.columns.map(c => bold(c.label)),
+    ...res.rows.map(r => res.columns.map(c => cellFor(r[c.key] ?? null, c.money))),
+  ];
+  if (res.totals) data.push(res.columns.map(c => cellFor(res.totals![c.key] ?? null, c.money, true)));
+  if (res.notes?.length) { data.push([]); res.notes.forEach(n => data.push([n])); }
   // real numbers with a money format, so the sheet can be summed and charted
-  const startRow = header.length + 1;
-  const lastRow = startRow + res.rows.length + (res.totals ? 1 : 0);
-  res.columns.forEach((c, ci) => {
-    if (!c.money) return;
-    for (let r = startRow; r < lastRow; r++) { const cell = ws[XLSX.utils.encode_cell({ r, c: ci })]; if (cell && typeof cell.v === 'number') cell.z = '#,##0.00'; }
-  });
-  ws['!cols'] = res.columns.map(c => ({ wch: Math.max(c.label.length + 2, c.money ? 16 : 14) }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31).replace(/[\\/?*[\]:]/g, ' '));
-  XLSX.writeFile(wb, `${safeName(title)}-${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  await writeXlsxFile(data as never, { columns: res.columns.map(c => ({ width: Math.max(c.label.length + 2, c.money ? 16 : 14) })), sheet: title.slice(0, 31).replace(/[\/?*[\]:]/g, ' ') } as never)
+    .toFile(`${safeName(title)}-${format(new Date(), 'yyyyMMdd')}.xlsx`);
 }
