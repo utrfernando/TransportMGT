@@ -25,7 +25,7 @@ const booking = (id, veh, s, e, status, extraCols = '', extraVals = '') =>
   `insert into hire_bookings(id,customer_id,vehicle_id,hire_type,start_at,end_at,agreed_price,status${extraCols ? ',' + extraCols : ''}) values ('${id}','${CUST}','${veh}','bus_hire','${s}','${e}',10000,'${status}'${extraVals ? ',' + extraVals : ''})`;
 
 before(async () => {
-  await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key default gen_random_uuid());
+  await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key default gen_random_uuid(), email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.uid', true),'')::uuid $$;
     create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit int, allowed_mime_types text[]);
     create table storage.objects(id uuid default gen_random_uuid(), bucket_id text, name text); alter table storage.objects enable row level security;`);

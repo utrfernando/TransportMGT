@@ -29,7 +29,7 @@ const claim = (uid, code) => as(uid, async () => (await one(`select portal_claim
 const tableRows = (uid, fn) => as(uid, async () => rows(`select * from ${fn}()`));
 
 before(async () => {
-  await db.exec(`create role anon; create role authenticated; create schema auth;
+  await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
     create table auth.users(id uuid primary key default gen_random_uuid(), email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.uid', true),'')::uuid $$;
     create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit int, allowed_mime_types text[]);
@@ -145,4 +145,49 @@ test('a second parent gets only their own child; revoking a link removes the dat
   assert.deepEqual(await overview(P1), { students: [], customers: [] });
   assert.equal((await tableRows(P1, 'portal_bookings')).length, 0);
   assert.deepEqual((await overview(P2)).students.map(s => s.name), ['Child Two']);   // the other parent is unaffected
+});
+
+// ------------------------------------------------------------------ admin-provisioned accounts (0007)
+const P4 = '00000000-0000-0000-0000-0000000000a4';
+const asService = () => db.exec(`reset role; set request.uid=''; set role service_role`);
+const svc = async (fn) => { await asService(); try { return await fn(); } finally { await asAdmin(); } };
+
+test('account provisioning functions can only be run by the server (service role), never by a signed-in user', async () => {
+  const calls = [`portal_admin_find_user('parent1@x.com')`, `portal_admin_link('${P1}', array['${S1}']::uuid[], '{}', null)`, `portal_admin_is_staff('${ADMIN}')`, `portal_admin_has_links('${P1}')`];
+  for (const who of [ADMIN, P1]) for (const c of calls) await as(who, () => assert.rejects(() => db.query(`select ${c}`), /permission denied/, `${who} ${c}`));
+  await asAnon(); try { for (const c of calls) await assert.rejects(() => db.query(`select ${c}`), /permission denied/, c); } finally { await asAdmin(); }
+});
+
+test('the server can find an existing login and link it to a student, reviving a removed link', async () => {
+  assert.equal(await svc(async () => (await one(`select portal_admin_find_user('  PARENT1@x.com ') id`)).id), P1);    // case/space-insensitive
+  assert.equal(await svc(async () => (await one(`select portal_admin_find_user('nobody@x.com') id`)).id), null);
+  assert.deepEqual(await overview(P1), { students: [], customers: [] });                                              // P1 was unlinked by an earlier test
+  const r = await svc(async () => (await one(`select portal_admin_link('${P1}', array['${S1}']::uuid[], array['${C1}']::uuid[], '${ADMIN}') r`)).r);
+  assert.deepEqual(r, { students: 1, customers: 1 });
+  assert.deepEqual((await overview(P1)).students.map(s => s.name), ['Child One']);
+  assert.equal((await one(`select created_by from portal_links where user_id='${P1}' and student_id='${S1}'`)).created_by, ADMIN);
+  assert.equal((await one(`select count(*)::int n from portal_links where user_id='${P1}' and student_id='${S1}'`)).n, 1);   // revived, not duplicated
+});
+
+test('provisioning refuses staff accounts, unknown records and oversized requests; a family never gains another family’s data', async () => {
+  await svc(async () => {
+    await assert.rejects(() => db.query(`select portal_admin_link('${ADMIN}', array['${S1}']::uuid[], '{}', null)`), /staff account/);
+    await assert.rejects(() => db.query(`select portal_admin_link('${P1}', array['00000000-0000-0000-0000-00000000dead']::uuid[], '{}', null)`), /does not exist/);
+    await assert.rejects(() => db.query(`select portal_admin_link('${P1}', '{}', '{}', null)`), /at least one/);
+    await assert.rejects(() => db.query(`select portal_admin_link('00000000-0000-0000-0000-00000000dead', array['${S1}']::uuid[], '{}', null)`), /does not exist/);
+    assert.equal((await one(`select portal_admin_is_staff('${ADMIN}') s`)).s, true);
+    assert.equal((await one(`select portal_admin_is_staff('${P1}') s`)).s, false);
+  });
+  assert.ok(!JSON.stringify(await overview(P1)).includes('Child Two'));
+});
+
+test('a newly provisioned login (with a guardian email on the student) sees its child straight away', async () => {
+  await db.exec(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values ('${P4}','family@x.com', now(), '{"full_name":"Family Four","must_change_password":true}');
+    update students set guardian_email = 'family@x.com' where id = '${S2}'`);
+  await assert.rejects(() => db.exec(`update students set guardian_email = 'not-an-email' where id = '${S2}'`), /guardian_email_check/);
+  await svc(async () => { await db.exec(`select portal_admin_link('${P4}', array['${S2}']::uuid[], '{}', '${ADMIN}')`); });
+  const ov = await overview(P4);
+  assert.deepEqual(ov.students.map(s => s.name), ['Child Two']);
+  assert.ok(!JSON.stringify([ov, await tableRows(P4, 'portal_invoices'), await tableRows(P4, 'portal_payments')]).includes('Child One'));
+  assert.equal((await one(`select full_name from portal_links where user_id='${P4}'`)).full_name, 'Family Four');
 });

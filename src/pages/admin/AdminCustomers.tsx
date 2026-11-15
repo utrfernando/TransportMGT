@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, Eye, KeyRound, Pencil, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, Eye, Pencil, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase, type Customer } from '../../lib/supabase';
 import { check, sanitizeSearch, unwrap } from '../../lib/db';
@@ -19,6 +18,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { OnlineAccountCard } from '../../components/admin/PortalAccounts';
 
 const PAGE = 12;
 const schema = z.object({
@@ -73,7 +73,7 @@ const CustomerDetail: React.FC<{ customer: Customer }> = ({ customer }) => {
   return (
     <div className="space-y-5">
       <KV items={[['Phone', customer.phone], ['Email', customer.email], ['Category', customer.category], ['Address', customer.address], ['Notes', customer.notes]]} />
-      <Link to={`/admin/portal?customer=${customer.id}`}><Button variant="outline" size="sm"><KeyRound size={15} /> Portal access code</Button></Link>
+      <OnlineAccountCard customerId={customer.id} defaults={{ name: customer.full_name, email: customer.email ?? '', phone: customer.phone, label: customer.full_name }} />
       {q.loading ? <Skeleton className="h-24" /> : <>
         <div className="grid grid-cols-3 gap-3">
           <StatCard label="Total hire value" value={formatMoney(total, cur)} tone="mint" />

@@ -11,6 +11,8 @@ interface AuthContextType {
   isCustomer: boolean;
   userEmail: string | null;
   userName: string | null;
+  /** the business set a temporary password: the customer must choose their own before using the portal */
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   /** customer / parent sign-in (no staff profile needed) */
   signInCustomer: (email: string, password: string) => Promise<void>;
@@ -32,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [mustChangePassword, setMustChange] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthUserId(uid);
       setUserEmail(session?.user?.email ?? null);
       setUserName((session?.user?.user_metadata?.full_name as string | undefined) ?? null);
+      setMustChange(session?.user?.user_metadata?.must_change_password === true);
       if (uid) await fetchProfile(uid);
       if (mounted) setLoading(false);
     });
@@ -60,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthUserId(uid);
       setUserEmail(session?.user?.email ?? null);
       setUserName((session?.user?.user_metadata?.full_name as string | undefined) ?? null);
+      setMustChange(session?.user?.user_metadata?.must_change_password === true);
       if (!uid) { setProfile(null); return; }
       // defer: calling supabase inside this callback can deadlock
       setTimeout(() => { fetchProfile(uid); }, 0);
@@ -106,7 +111,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
+    // choosing a password also clears the "temporary password" flag the business may have set
+    const { error } = await supabase.auth.updateUser({ password, data: { must_change_password: false } });
+    if (!error) setMustChange(false);
     if (error) throw error;
   };
 
@@ -115,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isCustomer = !!authUserId && !isAdmin;
 
   return (
-    <AuthContext.Provider value={{ profile, authUserId, loading, isAdmin, isOwner, isCustomer, userEmail, userName, signIn, signInCustomer, signUp, signOut, sendPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ profile, authUserId, loading, isAdmin, isOwner, isCustomer, userEmail, userName, mustChangePassword, signIn, signInCustomer, signUp, signOut, sendPasswordReset, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

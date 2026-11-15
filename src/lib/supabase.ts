@@ -121,6 +121,7 @@ export type StudentStatus = 'active' | 'paused' | 'completed' | 'withdrawn';
 export interface Student {
   id: string; student_code: string; full_name: string; school_id: string; guardian_name: string; guardian_phone: string;
   secondary_contact: string | null; pickup_location: string | null; dropoff_location: string | null; vehicle_id: string | null;
+  guardian_email: string | null;
   monthly_fee: number; start_date: string; end_date: string | null; status: StudentStatus; notes: string | null;
 }
 

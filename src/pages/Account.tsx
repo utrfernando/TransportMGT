@@ -218,11 +218,31 @@ const Profile: React.FC<{ ov: Overview; onLinked: () => void }> = ({ ov, onLinke
   );
 };
 
+// -------------------------------------------------- first sign-in with a temporary password
+const MustChangePassword: React.FC = () => {
+  const { updatePassword } = useAuth();
+  const toast = useToast();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(pwSchema) });
+  return (
+    <Card className="border-2 border-sunshine-300">
+      <h2 className="font-display text-lg font-bold text-navy-900 flex items-center gap-2"><KeyRound size={20} className="text-sunshine-600" /> Choose your own password</h2>
+      <p className="text-sm text-slate-600 mt-1">We gave you a temporary password. For your security, please choose a new one that only you know. Your account stays locked to this step until you do.</p>
+      <form className="grid sm:grid-cols-2 gap-4 max-w-xl mt-4" noValidate onSubmit={handleSubmit(async v => {
+        try { await updatePassword(v.password); toast.success('Password saved. Welcome!'); } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save the password'); }
+      })}>
+        <Field label="New password" error={errors.password?.message} hint="At least 10 characters"><Input type="password" autoComplete="new-password" {...register('password')} /></Field>
+        <Field label="Confirm" error={errors.confirm?.message}><Input type="password" autoComplete="new-password" {...register('confirm')} /></Field>
+        <div className="sm:col-span-2"><Button type="submit" variant="navy" loading={isSubmitting}>Save my password</Button></div>
+      </form>
+    </Card>
+  );
+};
+
 // ---------------------------------------------------------------- page
 const TABS = [{ key: 'overview', label: 'Overview', icon: UserRound }, { key: 'payments', label: 'Fees & payments', icon: Wallet }, { key: 'hires', label: 'My hires', icon: Bus }, { key: 'profile', label: 'Profile', icon: ShieldCheck }];
 
 const Account: React.FC = () => {
-  const { authUserId, loading, userName, signOut } = useAuth();
+  const { authUserId, loading, userName, signOut, mustChangePassword } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
 
@@ -248,7 +268,8 @@ const Account: React.FC = () => {
         </div>
       </section>
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        {load.loading ? <Skeleton className="h-64" /> : load.error ? <ErrorState message={load.error} onRetry={load.reload} /> : d && (
+        {mustChangePassword && <MustChangePassword />}
+        {mustChangePassword ? null : load.loading ? <Skeleton className="h-64" /> : load.error ? <ErrorState message={load.error} onRetry={load.reload} /> : d && (
           !linked ? (<>
             <ClaimCard first onLinked={load.reload} />
             <Card title="Don’t have a code yet?"><p className="text-sm text-slate-600 flex gap-3"><AlertTriangle size={18} className="text-sunshine-600 shrink-0 mt-0.5" />We give an access code to each parent when a child joins school transport, and to customers when a hire is booked. If you haven’t received yours, <Link to="/contact" className="font-bold text-navy-700 underline">contact us</Link> and we will send it to you.</p></Card>

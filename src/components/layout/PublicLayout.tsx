@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Bus, Menu, X, Mail, Phone, MapPin, MessageCircle, UserRound, LogIn, LayoutDashboard } from 'lucide-react';
+import { Bus, Menu, X, Mail, Phone, MapPin, MessageCircle, UserRound, UserPlus, LogIn, LayoutDashboard } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaTiktok, FaYoutube } from 'react-icons/fa';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,30 +52,39 @@ const Header: React.FC = () => {
 
   const account = authUserId
     ? <Link to={isAdmin ? '/admin' : '/account'} className="inline-flex items-center gap-2 rounded-xl border-2 border-navy-200 text-navy-800 hover:bg-navy-50 font-bold text-sm px-4 py-2 transition">{isAdmin ? <LayoutDashboard size={16} /> : <UserRound size={16} />}{isAdmin ? 'Admin' : 'My account'}</Link>
-    : <Link to="/account/login" className="inline-flex items-center gap-2 rounded-xl border-2 border-navy-200 text-navy-800 hover:bg-navy-50 font-bold text-sm px-4 py-2 transition"><LogIn size={16} /> Sign in</Link>;
+    : <>
+        <Link to="/account/login" className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-navy-200 text-navy-800 hover:bg-navy-50 font-bold text-sm px-4 py-2 transition"><LogIn size={16} /> Sign in</Link>
+        <Link to="/account/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy-800 hover:bg-navy-700 text-white font-bold text-sm px-4 py-2.5 transition"><UserPlus size={16} /> Sign up</Link>
+      </>;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-navy-100">
       <div className="max-w-7xl mx-auto px-4 h-[68px] flex items-center justify-between gap-4">
         <Link to="/" aria-label="Home"><BrandMark /></Link>
-        <nav className="hidden lg:flex items-center gap-1" aria-label="Main">
+        <nav className="hidden xl:flex items-center gap-1" aria-label="Main">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.end}
-              className={({ isActive }) => cn('relative px-3.5 py-2 text-sm font-bold transition rounded-lg', isActive ? 'text-navy-900 after:absolute after:left-3.5 after:right-3.5 after:-bottom-[13px] after:h-[3px] after:rounded-full after:bg-sunshine-400' : 'text-navy-600 hover:text-navy-900 hover:bg-navy-50')}>
+              className={({ isActive }) => cn('relative px-3 py-2 text-sm font-bold transition rounded-lg', isActive ? 'text-navy-900 after:absolute after:left-3 after:right-3 after:-bottom-[13px] after:h-[3px] after:rounded-full after:bg-sunshine-400' : 'text-navy-600 hover:text-navy-900 hover:bg-navy-50')}>
               {n.label}
             </NavLink>
           ))}
         </nav>
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden xl:flex items-center gap-2">
           {account}
           <Link to="/contact#inquiry" className="rounded-xl bg-sunshine-400 hover:bg-sunshine-300 text-navy-950 font-bold text-sm px-5 py-2.5 shadow-md shadow-sunshine-500/20 transition">Get a quote</Link>
         </div>
-        <button className="lg:hidden p-2 rounded-lg hover:bg-navy-50 text-navy-800" onClick={() => setOpen(o => !o)} aria-label="Menu" aria-expanded={open}>
-          {open ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="xl:hidden flex items-center gap-1.5">
+          {authUserId
+            ? <Link to={isAdmin ? '/admin' : '/account'} className="rounded-lg bg-navy-800 text-white font-bold text-sm px-3.5 py-2">{isAdmin ? 'Admin' : 'Account'}</Link>
+            : <><Link to="/account/login" className="rounded-lg border-2 border-navy-200 text-navy-800 font-bold text-sm px-3 py-1.5">Sign in</Link>
+                <Link to="/account/register" className="hidden min-[400px]:inline-block rounded-lg bg-navy-800 text-white font-bold text-sm px-3 py-2">Sign up</Link></>}
+          <button className="p-2 rounded-lg hover:bg-navy-50 text-navy-800" onClick={() => setOpen(o => !o)} aria-label="Menu" aria-expanded={open}>
+            {open ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
       {open && (
-        <div className="lg:hidden border-t border-navy-100 bg-white px-4 py-3 space-y-1 animate-slide-up">
+        <div className="xl:hidden border-t border-navy-100 bg-white px-4 py-3 space-y-1 animate-slide-up">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.end}
               className={({ isActive }) => cn('block px-4 py-3 rounded-xl font-bold', isActive ? 'bg-navy-50 text-navy-900' : 'text-navy-700')}>
@@ -84,8 +93,8 @@ const Header: React.FC = () => {
           ))}
           <div className="grid grid-cols-2 gap-2 pt-2">
             {account}
-            <Link to="/contact#inquiry" className="text-center rounded-xl bg-sunshine-400 text-navy-950 font-bold px-5 py-2.5">Get a quote</Link>
           </div>
+          <Link to="/contact#inquiry" className="block text-center rounded-xl bg-sunshine-400 text-navy-950 font-bold px-5 py-2.5">Get a quote</Link>
         </div>
       )}
     </header>

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, subDays } from 'date-fns';
-import { ArrowLeft, Eye, KeyRound, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Eye, Pencil, Plus, UserCheck } from 'lucide-react';
 import { supabase, type Student } from '../../lib/supabase';
 import { check, sanitizeSearch, unwrap } from '../../lib/db';
 import { useQuery } from '../../lib/queries';
@@ -17,6 +17,8 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { OnlineAccountCard } from '../../components/admin/PortalAccounts';
+import { callPortalApi, generatePassword } from '../../lib/portalApi';
 
 const PAGE = 12;
 type Row = Student & { schools: { name: string } | null; vehicles: { name: string } | null };
@@ -28,6 +30,7 @@ const schema = z.object({
   full_name: z.string().trim().min(2, 'Required').max(120), school_id: z.string().min(1, 'Choose a school'),
   guardian_name: z.string().trim().min(2, 'Required').max(120), guardian_phone: phone,
   secondary_contact: z.string().trim().regex(/^([0-9+()\-\s]{7,20})?$/, 'Enter a valid phone number'),
+  guardian_email: z.string().trim().email('Enter a valid email').or(z.literal('')),
   pickup_location: z.string().max(300), dropoff_location: z.string().max(300), route_id: z.string(), vehicle_id: z.string(),
   monthly_fee: z.string().refine(v => v !== '' && Number(v) >= 0 && !isNaN(Number(v)), 'Enter the monthly fee'),
   start_date: z.string().min(1, 'Required'), end_date: z.string(), status: z.enum(['active', 'paused', 'completed', 'withdrawn']), notes: z.string().max(1000),
@@ -38,12 +41,14 @@ const s = (v: string) => (v.trim() === '' ? null : v.trim());
 const StudentForm: React.FC<{ student: Student | null; schools: Opt[]; vehicles: Opt[]; routes: RouteOpt[]; onDone: () => void; onCancel: () => void }> = ({ student, schools, vehicles, routes, onDone, onCancel }) => {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
+  const [acct, setAcct] = useState<'none' | 'invite' | 'password'>('invite');
+  const [acctPassword, setAcctPassword] = useState('');
   const [currentRoute, setCurrentRoute] = useState<{ id: string; route_id: string; start_date: string } | null>(null);
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<V>({
+  const { register, handleSubmit, reset, watch, setError, formState: { errors } } = useForm<V>({
     resolver: zodResolver(schema),
     defaultValues: {
       full_name: student?.full_name ?? '', school_id: student?.school_id ?? '', guardian_name: student?.guardian_name ?? '', guardian_phone: student?.guardian_phone ?? '',
-      secondary_contact: student?.secondary_contact ?? '', pickup_location: student?.pickup_location ?? '', dropoff_location: student?.dropoff_location ?? '',
+      secondary_contact: student?.secondary_contact ?? '', guardian_email: student?.guardian_email ?? '', pickup_location: student?.pickup_location ?? '', dropoff_location: student?.dropoff_location ?? '',
       route_id: '', vehicle_id: student?.vehicle_id ?? '', monthly_fee: student?.monthly_fee?.toString() ?? '', start_date: student?.start_date ?? format(new Date(), 'yyyy-MM-dd'),
       end_date: student?.end_date ?? '', status: student?.status ?? 'active', notes: student?.notes ?? '',
     },
@@ -62,7 +67,11 @@ const StudentForm: React.FC<{ student: Student | null; schools: Opt[]; vehicles:
   const onSubmit = async (v: V) => {
     setSaving(true);
     try {
-      const row = { full_name: v.full_name, school_id: v.school_id, guardian_name: v.guardian_name, guardian_phone: v.guardian_phone, secondary_contact: s(v.secondary_contact),
+      if (!student && acct !== 'none') {
+        if (!v.guardian_email) { setError('guardian_email', { message: 'Enter the email to create their online account (or choose “Not now”)' }); setSaving(false); return; }
+        if (acct === 'password' && acctPassword.length < 10) { toast.error('The password must be at least 10 characters.'); setSaving(false); return; }
+      }
+      const row = { full_name: v.full_name, school_id: v.school_id, guardian_name: v.guardian_name, guardian_phone: v.guardian_phone, guardian_email: s(v.guardian_email), secondary_contact: s(v.secondary_contact),
         pickup_location: s(v.pickup_location), dropoff_location: s(v.dropoff_location), vehicle_id: s(v.vehicle_id), monthly_fee: Number(v.monthly_fee),
         start_date: v.start_date, end_date: s(v.end_date), status: v.status, notes: s(v.notes) };
       let sid = student?.id;
@@ -83,7 +92,15 @@ const StudentForm: React.FC<{ student: Student | null; schools: Opt[]; vehicles:
           }
         } else if (newRoute) check(await supabase.from('student_route_assignments').insert({ student_id: sid, route_id: newRoute, start_date: today }));
       }
-      toast.success(student ? 'Student updated' : 'Student registered');
+      let note = '';
+      if (!student && sid && acct !== 'none' && v.guardian_email) {
+        // every new student can get their family's online login straight away (invitation email, or a password you set)
+        try {
+          const r = await callPortalApi<{ mode: string }>({ action: 'create', email: v.guardian_email, full_name: v.guardian_name, phone: v.guardian_phone, student_ids: [sid], customer_ids: [], mode: acct, password: acct === 'password' ? acctPassword : undefined });
+          note = r.mode === 'existing' ? ' and linked to the family’s existing login' : acct === 'invite' ? ' — invitation emailed' : ' — online account created (give them the password)';
+        } catch (e) { toast.error(`Student saved, but the online account was not created: ${e instanceof Error ? e.message : 'unknown error'}. You can create it from the student’s page.`); }
+      }
+      toast.success(student ? 'Student updated' : `Student registered${note}`);
       onDone();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save student'); } finally { setSaving(false); }
   };
@@ -96,6 +113,7 @@ const StudentForm: React.FC<{ student: Student | null; schools: Opt[]; vehicles:
       <Field label="Parent / guardian name *" error={errors.guardian_name?.message}><Input {...register('guardian_name')} /></Field>
       <Field label="Guardian telephone *" error={errors.guardian_phone?.message}><Input type="tel" {...register('guardian_phone')} /></Field>
       <Field label="Secondary contact" error={errors.secondary_contact?.message}><Input type="tel" {...register('secondary_contact')} /></Field>
+      <Field label="Parent / guardian email" hint="Used for their online login" error={errors.guardian_email?.message}><Input type="email" autoComplete="off" {...register('guardian_email')} /></Field>
       <Field label="Monthly transport fee *" error={errors.monthly_fee?.message}><Input inputMode="decimal" {...register('monthly_fee')} /></Field>
       <Field label="Home pickup location"><Input {...register('pickup_location')} /></Field>
       <Field label="Drop-off location"><Input {...register('dropoff_location')} /></Field>
@@ -107,6 +125,14 @@ const StudentForm: React.FC<{ student: Student | null; schools: Opt[]; vehicles:
       <Field label="End date" error={errors.end_date?.message}><Input type="date" {...register('end_date')} /></Field>
       <Field label="Status"><Select {...register('status')}><option value="active">Active</option><option value="paused">Temporarily paused</option><option value="completed">Completed</option><option value="withdrawn">Withdrawn</option></Select></Field>
       <Field label="Special operational notes" className="sm:col-span-2"><Textarea rows={2} {...register('notes')} /></Field>
+      {!student && (
+        <fieldset className="sm:col-span-2 rounded-3xl border-2 border-mint-100 bg-mint-50/40 p-4 space-y-2">
+          <legend className="px-2 text-sm font-extrabold text-ink-800">Online account for the family</legend>
+          {([['invite', 'Email them an invitation to set their password (recommended)'], ['password', 'I will set a password now'], ['none', 'Not now — I will create it later']] as ['invite' | 'password' | 'none', string][]).map(([k, t]) => (
+            <label key={k} className="flex items-center gap-3 text-sm font-semibold text-ink-700 cursor-pointer"><input type="radio" name="acct" className="accent-teal-500" checked={acct === k} onChange={() => setAcct(k)} />{t}</label>))}
+          {acct === 'password' && <div className="flex flex-wrap items-center gap-2 pt-1"><Input className="max-w-xs font-mono" placeholder="Password (10+ characters)" value={acctPassword} onChange={e => setAcctPassword(e.target.value)} autoComplete="off" /><Button type="button" size="sm" variant="outline" onClick={() => setAcctPassword(generatePassword())}>Generate</Button><span className="text-xs text-ink-500">They must change it at first sign-in. Copy it before saving.</span></div>}
+          {acct !== 'none' && <p className="text-xs text-ink-500">Needs the guardian email above. The login shows only this child’s route, fees, payments and receipts.</p>}
+        </fieldset>)}
       <div className="sm:col-span-2"><FormActions onCancel={onCancel} saving={saving} label={student ? 'Save changes' : 'Register student'} /></div>
     </form>
   );
@@ -137,8 +163,14 @@ export const AdminStudents: React.FC = () => {
     if (t) q = q.or(`full_name.ilike.%${t}%,guardian_name.ilike.%${t}%,guardian_phone.ilike.%${t}%,student_code.ilike.%${t}%`);
     const { data, count, error } = await q;
     if (error) throw new Error(error.message);
-    return { rows: (data ?? []) as unknown as Row[], total: count ?? 0 };
-  }, { rows: [] as Row[], total: 0 }, [search, school, status, page]);
+    const rows = (data ?? []) as unknown as Row[];
+    const linked = new Set<string>();
+    if (rows.length) {
+      const { data: l } = await supabase.from('portal_links').select('student_id').is('revoked_at', null).in('student_id', rows.map(r => r.id));
+      (l ?? []).forEach(x => linked.add((x as { student_id: string }).student_id));
+    }
+    return { rows, total: count ?? 0, linked };
+  }, { rows: [] as Row[], total: 0, linked: new Set<string>() }, [search, school, status, page]);
 
   return (
     <div>
@@ -152,13 +184,14 @@ export const AdminStudents: React.FC = () => {
       {list.loading ? <Skeleton className="h-64" /> : list.error ? <ErrorState message={list.error} onRetry={list.reload} />
         : list.data.rows.length === 0 ? <div className="rounded-4xl bg-white border border-ink-100"><EmptyState title="No students found" message="Registered students will appear here." /></div>
         : <>
-          <Table head={['ID', 'Student', 'School', 'Guardian', 'Vehicle', 'Fee', 'Status', '']}>
+          <Table head={['ID', 'Student', 'School', 'Guardian', 'Vehicle', 'Fee', 'Status', 'Online account', '']}>
             {list.data.rows.map(st => (
               <tr key={st.id} className="hover:bg-ink-50">
                 <Td>{st.student_code}</Td>
                 <Td><Link to={`/admin/students/${st.id}`} className="font-bold hover:text-mint-600">{st.full_name}</Link></Td>
                 <Td>{st.schools?.name}</Td><Td>{st.guardian_name}<br /><span className="text-xs text-ink-400">{st.guardian_phone}</span></Td>
                 <Td>{st.vehicles?.name ?? '—'}</Td><Td>{formatMoney(st.monthly_fee, settings.currency)}</Td><Td><StatusBadge status={st.status} /></Td>
+                <Td>{list.data.linked.has(st.id) ? <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700"><UserCheck size={14} /> Has login</span> : <Link to={`/admin/students/${st.id}`} className="text-xs font-bold text-mint-700 hover:underline">Create account</Link>}</Td>
                 <Td className="whitespace-nowrap text-right">
                   <Link to={`/admin/students/${st.id}`} title="View" className="inline-flex p-2 rounded-full hover:bg-ink-100"><Eye size={16} /></Link>
                   <button title="Edit" onClick={() => setEditing(st)} className="p-2 rounded-full hover:bg-ink-100"><Pencil size={16} /></button>
@@ -199,16 +232,17 @@ export const AdminStudentDetail: React.FC = () => {
   return (
     <div className="space-y-5">
       <Link to="/admin/students" className="inline-flex items-center gap-1 text-sm font-bold text-ink-500 hover:text-mint-600"><ArrowLeft size={14} /> All students</Link>
-      <AdminHeader title={x.full_name} subtitle={`${x.student_code} · ${x.schools?.name}`} actions={<><Link to={`/admin/portal?student=${x.id}`}><Button variant="outline" size="sm"><KeyRound size={15} /> Portal access code</Button></Link><StatusBadge status={x.status} /></>} />
+      <AdminHeader title={x.full_name} subtitle={`${x.student_code} · ${x.schools?.name}`} actions={<StatusBadge status={x.status} />} />
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Monthly fee" value={m(Number(x.monthly_fee))} tone="mint" />
         <StatCard label="Total paid" value={m(paid)} tone="lavender" />
         <StatCard label="Outstanding" value={m(outstanding)} tone={outstanding > 0 ? 'red' : 'ink'} />
       </div>
       <Card title="Personal & transport details">
-        <KV items={[['Guardian', x.guardian_name], ['Guardian phone', x.guardian_phone], ['Secondary contact', x.secondary_contact], ['Pickup', x.pickup_location], ['Drop-off', x.dropoff_location],
+        <KV items={[['Guardian', x.guardian_name], ['Guardian phone', x.guardian_phone], ['Guardian email', x.guardian_email], ['Secondary contact', x.secondary_contact], ['Pickup', x.pickup_location], ['Drop-off', x.dropoff_location],
           ['Vehicle', x.vehicles?.name], ['Start date', x.start_date], ['End date', x.end_date], ['Notes', x.notes]]} />
       </Card>
+      <OnlineAccountCard studentId={x.id} defaults={{ name: x.guardian_name, email: x.guardian_email ?? '', phone: x.guardian_phone, label: `${x.full_name} (${x.student_code})` }} />
       <Card title="Route history">
         {more.data.asg.length === 0 ? <p className="text-sm text-ink-500">Not assigned to a route yet.</p> :
           <ul className="divide-y divide-ink-100 text-sm">{more.data.asg.map(a => <li key={a.id} className="py-2 flex justify-between"><span className="font-bold">{a.transport_routes?.name}</span><span>{a.start_date} → {a.end_date ?? 'present'}</span></li>)}</ul>}
