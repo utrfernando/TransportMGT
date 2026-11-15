@@ -47,8 +47,10 @@ const AdminLayout: React.FC = () => {
     // create any new alerts (payments due, expiries, servicing...) at most once an hour per browser tab
     let last = 0; try { last = Number(sessionStorage.getItem('alerts-checked') ?? 0); } catch { /* ignore */ }
     if (Date.now() - last > 3600_000) {
-      try { sessionStorage.setItem('alerts-checked', String(Date.now())); } catch { /* ignore */ }
-      supabase.rpc('generate_notifications').then(load, load);
+      supabase.rpc('generate_notifications').then(({ error }) => {
+        if (!error) { try { sessionStorage.setItem('alerts-checked', String(Date.now())); } catch { /* ignore */ } }
+        load();
+      }, load);
     } else load();
     const t = setInterval(load, 60000);
     window.addEventListener('notifications-changed', load);
