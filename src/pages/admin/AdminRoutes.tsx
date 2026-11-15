@@ -14,6 +14,8 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+
 import MapPicker from '../../components/maps/MapPicker';
 import RouteMap from '../../components/maps/RouteMap';
 import { googleDirectionsLink } from '../../lib/maps';
@@ -198,10 +200,57 @@ const RouteDetail: React.FC<{ route: Row }> = ({ route }) => {
   );
 };
 
+/** Deleting a route is only allowed when it has never carried a student; otherwise the history must be kept. */
+const DeleteRouteDialog: React.FC<{ route: Row | null; onClose: () => void; onChanged: () => void }> = ({ route, onClose, onChanged }) => {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const info = useQuery(async () => {
+    if (!route) return { current: 0, past: 0 };
+    const [c, a] = await Promise.all([
+      supabase.from('student_route_assignments').select('id', { count: 'exact', head: true }).eq('route_id', route.id).is('end_date', null),
+      supabase.from('student_route_assignments').select('id', { count: 'exact', head: true }).eq('route_id', route.id),
+    ]);
+    if (c.error || a.error) throw new Error((c.error ?? a.error)!.message);
+    return { current: c.count ?? 0, past: (a.count ?? 0) - (c.count ?? 0) };
+  }, { current: 0, past: 0 }, [route?.id]);
+
+  const used = info.data.current + info.data.past > 0;
+  const remove = async () => {
+    if (!route) return;
+    setBusy(true);
+    try { check(await supabase.from('transport_routes').delete().eq('id', route.id)); toast.success('Route deleted'); onChanged(); onClose(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Could not delete the route'); } finally { setBusy(false); }
+  };
+  const deactivate = async () => {
+    if (!route) return;
+    setBusy(true);
+    try { check(await supabase.from('transport_routes').update({ status: 'inactive' }).eq('id', route.id)); toast.success('Route set to inactive — history kept'); onChanged(); onClose(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Could not update the route'); } finally { setBusy(false); }
+  };
+
+  if (!route) return null;
+  if (info.loading) return <Modal open onClose={onClose} title="Delete route"><p className="text-sm text-ink-500">Checking the route’s history…</p></Modal>;
+  if (info.error) return <Modal open onClose={onClose} title="Delete route"><ErrorState message={info.error} onRetry={info.reload} /></Modal>;
+  if (used) return (
+    <Modal open onClose={onClose} title="This route can’t be deleted">
+      <div className="space-y-4">
+        <p className="text-sm text-ink-700"><b>{route.name}</b> {info.data.current > 0 ? <>currently has <b>{info.data.current}</b> student(s) assigned{info.data.past > 0 ? <> and <b>{info.data.past}</b> past assignment(s)</> : null}</> : <>has <b>{info.data.past}</b> past student assignment(s)</>}. Deleting it would erase that history.</p>
+        <ul className="text-sm text-ink-600 list-disc pl-5 space-y-1">
+          {info.data.current > 0 && <li>To retire it, first move its students to another route (edit each student, or open this route and remove them).</li>}
+          <li>You can set the route to <b>inactive</b> instead: it stops being used for new bookings and availability checks, and every record is kept.</li>
+        </ul>
+        <div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Close</Button>{route.status === 'active' && <Button variant="outline" loading={busy} onClick={deactivate}>Set route to inactive</Button>}</div>
+      </div>
+    </Modal>
+  );
+  return <ConfirmDialog open danger loading={busy} title="Delete this route?" confirmLabel="Delete route" message={`“${route.name}” and its stops will be permanently deleted. No students have ever been assigned to it. The deletion is kept in the audit log.`} onClose={onClose} onConfirm={remove} />;
+};
+
 export const AdminRoutes: React.FC = () => {
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Row | 'new' | null>(null);
   const [viewing, setViewing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
 
   const opts = useQuery(async () => {
     const [sc, ve, dr] = await Promise.all([
@@ -235,6 +284,7 @@ export const AdminRoutes: React.FC = () => {
                 <Td className="whitespace-nowrap text-right">
                   <button title="View" onClick={() => setViewing(r)} className="p-2 rounded-full hover:bg-ink-100"><Eye size={16} /></button>
                   <button title="Edit" onClick={() => setEditing(r)} className="p-2 rounded-full hover:bg-ink-100"><Pencil size={16} /></button>
+                  <button title="Delete" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)} className="p-2 rounded-full hover:bg-ink-100 text-red-500"><Trash2 size={16} /></button>
                 </Td>
               </tr>
             ))}
@@ -245,6 +295,7 @@ export const AdminRoutes: React.FC = () => {
         {editing && <RouteForm route={editing === 'new' ? null : editing} schools={opts.data.schools} vehicles={opts.data.vehicles} drivers={opts.data.drivers} onCancel={() => setEditing(null)} onDone={() => { setEditing(null); list.reload(); }} />}
       </Modal>
       <Modal open={!!viewing} onClose={() => setViewing(null)} wide title={viewing?.name}>{viewing && <RouteDetail route={viewing} />}</Modal>
+      <DeleteRouteDialog route={deleting} onClose={() => setDeleting(null)} onChanged={list.reload} />
     </div>
   );
 };
