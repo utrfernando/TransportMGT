@@ -21,8 +21,8 @@ export const BrandMark: React.FC<{ light?: boolean }> = ({ light }) => {
     <span className="flex items-center gap-2.5">
       {settings.logo_url
         ? <img src={settings.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
-        : <span className="h-10 w-10 rounded-xl bg-navy-800 text-sunshine-400 flex items-center justify-center shadow-md"><Bus size={22} /></span>}
-      <span className={cn('font-display text-xl font-extrabold leading-none', light ? 'text-white' : 'text-navy-900')}>{settings.business_name}</span>
+        : <span className="h-10 w-10 shrink-0 rounded-xl bg-navy-800 text-sunshine-400 flex items-center justify-center shadow-md"><Bus size={22} /></span>}
+      <span className={cn('font-display text-base sm:text-xl font-extrabold leading-tight truncate max-w-[9rem] min-[420px]:max-w-[14rem] sm:max-w-none', light ? 'text-white' : 'text-navy-900')}>{settings.business_name}</span>
     </span>
   );
 };
@@ -75,9 +75,9 @@ const Header: React.FC = () => {
         </div>
         <div className="xl:hidden flex items-center gap-1.5">
           {authUserId
-            ? <Link to={isAdmin ? '/admin' : '/account'} className="rounded-lg bg-navy-800 text-white font-bold text-sm px-3.5 py-2">{isAdmin ? 'Admin' : 'Account'}</Link>
-            : <><Link to="/account/login" className="rounded-lg border-2 border-navy-200 text-navy-800 font-bold text-sm px-3 py-1.5">Sign in</Link>
-                <Link to="/account/register" className="hidden min-[400px]:inline-block rounded-lg bg-navy-800 text-white font-bold text-sm px-3 py-2">Sign up</Link></>}
+            ? <Link to={isAdmin ? '/admin' : '/account'} className="whitespace-nowrap rounded-lg bg-navy-800 text-white font-bold text-sm px-3.5 py-2">{isAdmin ? 'Admin' : 'Account'}</Link>
+            : <><Link to="/account/login" className="whitespace-nowrap rounded-lg border-2 border-navy-200 text-navy-800 font-bold text-sm px-3 py-1.5">Sign in</Link>
+                <Link to="/account/register" className="hidden min-[400px]:inline-block whitespace-nowrap rounded-lg bg-navy-800 text-white font-bold text-sm px-3 py-2">Sign up</Link></>}
           <button className="p-2 rounded-lg hover:bg-navy-50 text-navy-800" onClick={() => setOpen(o => !o)} aria-label="Menu" aria-expanded={open}>
             {open ? <X size={24} /> : <Menu size={24} />}
           </button>
