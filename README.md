@@ -13,7 +13,7 @@ Public company website + private admin dashboard for a small transport business
 | 2 | Vehicles, drivers, customers, schools, students, routes | **Done** |
 | 3 | Monthly billing, hire bookings, calendar, payments | **Done** |
 | 4 | Income, expenses, fuel, maintenance, documents | Next |
-| 5 | Analytics, reports, PDF/Excel export, notifications | |
+| 5 | Analytics, reports, PDF/Excel export, notifications | **Done** |
 | 6 | Testing, security review, deployment | Next |
 
 The admin sidebar only lists modules that exist; new items appear as each phase ships.
