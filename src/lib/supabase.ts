@@ -129,7 +129,7 @@ export interface TransportRoute {
   id: string; name: string; school_id: string | null; vehicle_id: string | null; driver_id: string | null;
   operating_days: number[]; departure_time: string; return_time: string; status: 'active' | 'inactive'; notes: string | null;
 }
-export interface RouteStop { id: string; route_id: string; stop_type: 'pickup' | 'dropoff'; name: string; sequence: number; scheduled_time: string | null }
+export interface RouteStop { id: string; route_id: string; stop_type: 'pickup' | 'dropoff'; name: string; sequence: number; scheduled_time: string | null; latitude: number | null; longitude: number | null }
 export interface StudentRouteAssignment { id: string; student_id: string; route_id: string; start_date: string; end_date: string | null }
 
 // ------------------------------------------------------------------

@@ -24,7 +24,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children, wi
       <div className={cn('relative w-full bg-white rounded-t-4xl sm:rounded-4xl shadow-soft-lg max-h-[92vh] overflow-y-auto animate-slide-up', wide ? 'sm:max-w-4xl' : 'sm:max-w-lg')}>
         <div className="sticky top-0 bg-white/95 backdrop-blur px-6 py-4 border-b border-ink-100 flex items-center justify-between z-10 rounded-t-4xl">
           <h3 className="font-display text-xl font-bold text-ink-900">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-ink-100 text-ink-500"><X size={20} /></button>
+          <button type="button" aria-label="Close" onClick={onClose} className="p-2 rounded-full hover:bg-ink-100 text-ink-500"><X size={20} /></button>
         </div>
         <div className="p-6">{children}</div>
       </div>

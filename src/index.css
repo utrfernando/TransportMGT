@@ -106,3 +106,11 @@ body {
 @keyframes road-move { to { background-position: -96px 0; } }
 .road-dash { background-image: repeating-linear-gradient(90deg, #fbbf24 0 48px, transparent 48px 96px); animation: road-move 2.4s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .animate-drive, .road-dash, .animate-float, .animate-marquee { animation: none; } }
+
+/* Map pins (Leaflet) */
+.map-pin-wrap { background: transparent; border: 0; }
+.map-pin { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(10, 21, 48, 0.35); font: 800 14px/1 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; }
+.map-pin-pickup { background: #1d3166; color: #fbbf24; }
+.map-pin-dropoff { background: #fbbf24; color: #0a1530; }
+.map-pin-edit { background: #14b8a6; color: #fff; }
+.leaflet-container { font-family: 'Inter', system-ui, sans-serif; z-index: 0; }

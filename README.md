@@ -14,7 +14,7 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
 | Admin sign-in | Email/password, password reset, `OWNER` / `ADMIN` roles, no public staff registration, deactivation |
 | Customer & parent portal | Parents and hire customers sign up, link their records with a one-time access code, then see their child's route, fees, payments, receipts and hires |
 | Fleet | Vehicles (photos, expiry dates, public listing), drivers, documents & renewals, maintenance, fuel |
-| School transport | Schools, students, routes with stops, history-preserving route assignments |
+| School transport | Schools, students, routes with stops **pinned on a map**, history-preserving route assignments |
 | Billing | Idempotent monthly invoices, part-month pro-rating, partial / advance payments, adjustments, PDF receipts |
 | Hires | Bookings with live availability checks, driver fees, customer payments, inquiry → booking conversion, calendar |
 | Money | Income, expenses (+ receipts), fuel & maintenance auto-expenses, dashboard, 18 reports with PDF / Excel export |
@@ -31,7 +31,7 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
    ```
 3. **Database** – in *Supabase → SQL Editor* run these files **in order**, each once:
    `supabase/migrations/0001_transport_schema.sql` → `0002_billing_bookings.sql` → `0003_finance_upkeep.sql` →
-   `0004_reports_notifications.sql` → `0005_hardening.sql` → `0006_customer_portal.sql` → `0007_admin_provisioned_accounts.sql`.
+   `0004_reports_notifications.sql` → `0005_hardening.sql` → `0006_customer_portal.sql` → `0007_admin_provisioned_accounts.sql` → `0008_route_stop_locations.sql`.
 4. **Auth settings** (*Authentication* in the dashboard):
    - **Keep "Allow new users to sign up" ON and "Confirm email" ON** (Sign In / Providers). Parents and customers create their own
      accounts. A new account can see **nothing** until you give it an access code (see *Customer & parent portal* below), and staff
@@ -75,6 +75,18 @@ or other families' data). Creating logins needs the Supabase secret key, so it h
 (`api/portal-accounts`): it verifies the caller is an active administrator, can never touch staff accounts, never echoes
 passwords, and deletes a login again if linking fails. Access codes are random, single-use, expire, are stored only as a hash;
 wrong guesses are limited to 5 per hour per account.
+
+## Route maps
+
+Each pickup / drop-off point of a school route can be pinned on a map (*Admin → School Routes → edit a route → pin icon beside a stop*):
+click the map (drag to fine-tune), search for a place or landmark, or paste a Google Maps address / `6.9271, 79.8612`.
+The route page then shows a map of all stops in order, and **parents see a map of their own child's route** in their account,
+with a *Directions* link for each stop that opens Google Maps on their phone.
+
+Maps use **OpenStreetMap** through Leaflet — free, no API key and no billing. Please keep the on-map credit visible. OpenStreetMap's public
+tile server is meant for light use (a small business is fine); if traffic ever grows large, switch to a paid tile provider by changing
+`OSM_TILES` in `src/components/maps/RouteMap.tsx` and the `img-src` rule in `vercel.json`. The place search sends only the words you type
+to OpenStreetMap's Nominatim service. Only shared route stops are mapped — a child's home address is never placed on a map.
 
 ## Scripts
 

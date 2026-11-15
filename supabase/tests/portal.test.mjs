@@ -191,3 +191,21 @@ test('a newly provisioned login (with a guardian email on the student) sees its 
   assert.ok(!JSON.stringify([ov, await tableRows(P4, 'portal_invoices'), await tableRows(P4, 'portal_payments')]).includes('Child One'));
   assert.equal((await one(`select full_name from portal_links where user_id='${P4}'`)).full_name, 'Family Four');
 });
+
+// ------------------------------------------------------------------ map pins on route stops (0008)
+test('route stops can be pinned on a map; invalid or half-set coordinates are refused', async () => {
+  await assert.rejects(() => db.exec(`update route_stops set latitude = 95, longitude = 80`), /route_stops_location_check/);
+  await assert.rejects(() => db.exec(`update route_stops set latitude = 6.9`), /route_stops_location_check/);           // both or neither
+  await assert.rejects(() => db.exec(`update route_stops set latitude = 6.9, longitude = 181`), /route_stops_location_check/);
+  await db.exec(`update route_stops set latitude = 6.927079, longitude = 79.861244`);
+  assert.deepEqual(await one(`select latitude::float8 lat, longitude::float8 lng from route_stops`), { lat: 6.927079, lng: 79.861244 });
+});
+
+test('a parent sees the map pins of their own child’s route only', async () => {
+  const ov = await overview(P1);
+  const stop = ov.students.find(s => s.name === 'Child One').route.stops[0];
+  assert.deepEqual([stop.name, stop.lat, stop.lng], ['Main Junction', 6.927079, 79.861244]);
+  const other = await overview(P2);
+  assert.ok(!JSON.stringify(other).includes('Main Junction'));            // another family's child is on no route, so no pins leak
+});
+

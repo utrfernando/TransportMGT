@@ -3,7 +3,7 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, subDays } from 'date-fns';
-import { Eye, Pencil, Plus, Trash2, UserMinus } from 'lucide-react';
+import { Eye, MapPin, Pencil, Plus, Trash2, UserMinus } from 'lucide-react';
 import { supabase, type RouteStop, type TransportRoute } from '../../lib/supabase';
 import { check, unwrap } from '../../lib/db';
 import { useQuery } from '../../lib/queries';
@@ -14,6 +14,9 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import MapPicker from '../../components/maps/MapPicker';
+import RouteMap from '../../components/maps/RouteMap';
+import { googleDirectionsLink } from '../../lib/maps';
 
 const PAGE = 12;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,7 +28,7 @@ const schema = z.object({
   operating_days: z.array(z.number()).min(1, 'Pick at least one day'),
   departure_time: z.string().min(1, 'Required'), return_time: z.string().min(1, 'Required'),
   status: z.enum(['active', 'inactive']), notes: z.string().max(1000),
-  stops: z.array(z.object({ stop_type: z.enum(['pickup', 'dropoff']), name: z.string().trim().min(1, 'Name required').max(150), scheduled_time: z.string() })),
+  stops: z.array(z.object({ stop_type: z.enum(['pickup', 'dropoff']), name: z.string().trim().min(1, 'Name required').max(150), scheduled_time: z.string(), latitude: z.number().nullable(), longitude: z.number().nullable() })),
 }).refine(v => v.return_time > v.departure_time, { path: ['return_time'], message: 'Return must be after departure' });
 type V = z.infer<typeof schema>;
 const hhmm = (t: string) => t.slice(0, 5);
@@ -60,12 +63,13 @@ const RouteForm: React.FC<{ route: Row | null; schools: Opt[]; vehicles: Opt[]; 
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: 'stops' });
+  const [pinIndex, setPinIndex] = useState<number | null>(null);
   const days = watch('operating_days');
 
   useEffect(() => {
     if (!route) return;
     supabase.from('route_stops').select('*').eq('route_id', route.id).order('sequence').then(({ data }) => {
-      reset(cur => ({ ...cur, stops: ((data ?? []) as RouteStop[]).map(x => ({ stop_type: x.stop_type, name: x.name, scheduled_time: x.scheduled_time ? hhmm(x.scheduled_time) : '' })) }));
+      reset(cur => ({ ...cur, stops: ((data ?? []) as RouteStop[]).map(x => ({ stop_type: x.stop_type, name: x.name, scheduled_time: x.scheduled_time ? hhmm(x.scheduled_time) : '', latitude: x.latitude === null || x.latitude === undefined ? null : Number(x.latitude), longitude: x.longitude === null || x.longitude === undefined ? null : Number(x.longitude) })) }));
     });
   }, [route, reset]);
 
@@ -80,7 +84,8 @@ const RouteForm: React.FC<{ route: Row | null; schools: Opt[]; vehicles: Opt[]; 
       if (route) check(await supabase.from('transport_routes').update(row).eq('id', route.id));
       else rid = (unwrap(await supabase.from("transport_routes").insert(row).select("id").single()) as { id: string }).id;
       check(await supabase.from('route_stops').delete().eq('route_id', rid!));
-      if (v.stops.length) check(await supabase.from('route_stops').insert(v.stops.map((x, i) => ({ route_id: rid, stop_type: x.stop_type, name: x.name, sequence: i, scheduled_time: x.scheduled_time || null }))));
+      const withGeo = v.stops.some(x => x.latitude !== null && x.longitude !== null);
+      if (v.stops.length) check(await supabase.from('route_stops').insert(v.stops.map((x, i) => ({ route_id: rid, stop_type: x.stop_type, name: x.name, sequence: i, scheduled_time: x.scheduled_time || null, ...(withGeo ? { latitude: x.latitude, longitude: x.longitude } : {}) }))));
       toast.success(route ? 'Route updated' : 'Route created');
       onDone();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save route'); } finally { setSaving(false); }
@@ -108,15 +113,17 @@ const RouteForm: React.FC<{ route: Row | null; schools: Opt[]; vehicles: Opt[]; 
       <div className="sm:col-span-2">
         <div className="flex items-center justify-between mb-2"><p className="text-sm font-bold text-ink-700">Pickup & drop-off points</p>
           <div className="flex gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => append({ stop_type: 'pickup', name: '', scheduled_time: '' })}>+ Pickup</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => append({ stop_type: 'dropoff', name: '', scheduled_time: '' })}>+ Drop-off</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => append({ stop_type: 'pickup', name: '', scheduled_time: '', latitude: null, longitude: null })}>+ Pickup</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => append({ stop_type: 'dropoff', name: '', scheduled_time: '', latitude: null, longitude: null })}>+ Drop-off</Button>
           </div></div>
         <div className="space-y-2">
           {fields.map((f, i) => (
-            <div key={f.id} className="grid grid-cols-[90px_1fr_110px_auto] gap-2 items-start">
+            <div key={f.id} className="grid grid-cols-[90px_1fr_110px_auto_auto] gap-2 items-start">
               <Select {...register(`stops.${i}.stop_type`)}><option value="pickup">Pickup</option><option value="dropoff">Drop-off</option></Select>
               <div><Input placeholder="Location" {...register(`stops.${i}.name`)} />{errors.stops?.[i]?.name && <p className="text-xs text-red-500 font-semibold mt-1">{errors.stops[i]!.name!.message}</p>}</div>
               <Input type="time" {...register(`stops.${i}.scheduled_time`)} />
+              <button type="button" title={watch(`stops.${i}.latitude`) !== null ? 'Pinned on the map — click to change' : 'Set the map pin'} aria-label="Set map pin" onClick={() => setPinIndex(i)}
+                className={`p-2.5 rounded-full hover:bg-ink-100 ${watch(`stops.${i}.latitude`) !== null ? 'text-mint-600 bg-mint-50' : 'text-ink-400'}`}><MapPin size={16} /></button>
               <button type="button" aria-label="Remove stop" onClick={() => remove(i)} className="p-2.5 rounded-full hover:bg-ink-100 text-ink-500"><Trash2 size={16} /></button>
             </div>
           ))}
@@ -125,6 +132,10 @@ const RouteForm: React.FC<{ route: Row | null; schools: Opt[]; vehicles: Opt[]; 
       </div>
       <Field label="Notes" className="sm:col-span-2"><Textarea rows={2} {...register('notes')} /></Field>
       {conflict && <p className="sm:col-span-2 rounded-2xl bg-red-50 text-red-600 text-sm font-semibold p-3">{conflict}</p>}
+      <MapPicker open={pinIndex !== null} title={pinIndex !== null ? watch(`stops.${pinIndex}.name`) : ''}
+        initial={pinIndex !== null && watch(`stops.${pinIndex}.latitude`) !== null ? { lat: watch(`stops.${pinIndex}.latitude`) as number, lng: watch(`stops.${pinIndex}.longitude`) as number } : null}
+        onClose={() => setPinIndex(null)}
+        onSave={p => { if (pinIndex !== null) { setValue(`stops.${pinIndex}.latitude`, p?.lat ?? null, { shouldDirty: true }); setValue(`stops.${pinIndex}.longitude`, p?.lng ?? null, { shouldDirty: true }); } setPinIndex(null); }} />
       <div className="sm:col-span-2"><FormActions onCancel={onCancel} saving={saving} label={route ? 'Save changes' : 'Create route'} /></div>
     </form>
   );
@@ -136,6 +147,7 @@ const RouteDetail: React.FC<{ route: Row }> = ({ route }) => {
   const toast = useToast();
   const [pick, setPick] = useState('');
   const stops = useQuery(async () => unwrap(await supabase.from('route_stops').select('*').eq('route_id', route.id).order('sequence')) as RouteStop[], [] as RouteStop[], [route.id]);
+  const pinned = stops.data.filter(s => s.latitude !== null && s.latitude !== undefined && s.longitude !== null && s.longitude !== undefined).map(s => ({ name: s.name, type: s.stop_type, lat: Number(s.latitude), lng: Number(s.longitude), time: s.scheduled_time }));
   const asg = useQuery(async () => unwrap(await supabase.from('student_route_assignments').select('id,student_id,start_date,students(full_name,student_code)').eq('route_id', route.id).is('end_date', null)) as unknown as Asg[], [] as Asg[], [route.id]);
   const avail = useQuery(async () => {
     const students = unwrap(await supabase.from('students').select('id,full_name,student_code').eq('school_id', route.school_id!).eq('status', 'active').order('full_name')) as { id: string; full_name: string; student_code: string }[];
@@ -165,7 +177,12 @@ const RouteDetail: React.FC<{ route: Row }> = ({ route }) => {
       <div>
         <h4 className="font-display font-bold mb-2">Stops</h4>
         {stops.data.length === 0 ? <p className="text-sm text-ink-500">No stops added.</p> :
-          <ol className="text-sm space-y-1">{stops.data.map(s => <li key={s.id} className="flex gap-2"><span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${s.stop_type === 'pickup' ? 'bg-mint-100 text-mint-700' : 'bg-sunshine-100 text-sunshine-700'}`}>{s.stop_type}</span>{s.name}{s.scheduled_time && <span className="text-ink-400">· {hhmm(s.scheduled_time)}</span>}</li>)}</ol>}
+          <>
+            {pinned.length > 0 && <div className="mb-3"><RouteMap stops={pinned} height={300} /></div>}
+            <ol className="text-sm space-y-1">{stops.data.map(s => <li key={s.id} className="flex flex-wrap items-center gap-2"><span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${s.stop_type === 'pickup' ? 'bg-mint-100 text-mint-700' : 'bg-sunshine-100 text-sunshine-700'}`}>{s.stop_type}</span>{s.name}{s.scheduled_time && <span className="text-ink-400">· {hhmm(s.scheduled_time)}</span>}
+              {s.latitude !== null && s.latitude !== undefined && s.longitude !== null && <a href={googleDirectionsLink({ lat: Number(s.latitude), lng: Number(s.longitude) })} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-mint-700 hover:underline"><MapPin size={12} /> Directions</a>}</li>)}</ol>
+            {stops.data.length > 0 && pinned.length === 0 && <p className="text-xs text-ink-400 mt-2">No map pins yet — edit the route and tap the pin icon beside a stop to place it on the map.</p>}
+          </>}
       </div>
       <div>
         <h4 className="font-display font-bold mb-2">Students on this route ({asg.data.length})</h4>

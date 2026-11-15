@@ -15,11 +15,13 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useToast } from '../contexts/ToastContext';
 import { cn, formatMoney } from '../lib/utils';
 import { Button } from '../components/ui/Button';
+import RouteMap from '../components/maps/RouteMap';
+import { googleDirectionsLink } from '../lib/maps';
 import { Field, Input } from '../components/ui/Input';
 import { ErrorState, Skeleton } from '../components/ui/Feedback';
 
 // ----- the shapes returned by the portal_* database functions (curated columns only) -----
-interface Stop { type: 'pickup' | 'dropoff'; name: string; time: string | null }
+interface Stop { type: 'pickup' | 'dropoff'; name: string; time: string | null; lat: number | null; lng: number | null }
 interface Route { name: string; departure_time: string; return_time: string; days: number[]; vehicle: string | null; stops: Stop[] }
 interface Child { id: string; student_code: string; name: string; status: string; school: string; monthly_fee: number; pickup_location: string | null; dropoff_location: string | null; start_date: string; end_date: string | null; route: Route | null; outstanding: number }
 interface Overview { students: Child[]; customers: { id: string; name: string; category: string }[] }
@@ -119,10 +121,14 @@ const Overview: React.FC<{ ov: Overview; invoices: InvoiceRow[]; bookings: Booki
                 <p className="font-bold text-navy-900 flex items-center gap-2"><Bus size={17} /> {c.route.name}{c.route.vehicle ? ` · ${c.route.vehicle}` : ''}</p>
                 <p className="mt-1 text-slate-700">Leaves {hhmm(c.route.departure_time)} · returns {hhmm(c.route.return_time)}</p>
                 <p className="text-slate-500 text-xs">{c.route.days.map(d => DAYS[d]).join(', ')}</p>
-                {c.route.stops.length > 0 && <ol className="mt-3 space-y-1">{c.route.stops.map((s, i) => <li key={i} className="flex gap-2 text-xs"><span className={cn('shrink-0 rounded px-1.5 font-extrabold uppercase', s.type === 'pickup' ? 'bg-navy-800 text-sunshine-300' : 'bg-sunshine-200 text-navy-900')}>{s.type}</span>{s.name}{s.time ? ` · ${hhmm(s.time)}` : ''}</li>)}</ol>}
+                {c.route.stops.length > 0 && <ol className="mt-3 space-y-1">{c.route.stops.map((s, i) => <li key={i} className="flex flex-wrap items-center gap-2 text-xs"><span className={cn('shrink-0 rounded px-1.5 font-extrabold uppercase', s.type === 'pickup' ? 'bg-navy-800 text-sunshine-300' : 'bg-sunshine-200 text-navy-900')}>{s.type}</span>{s.name}{s.time ? ` · ${hhmm(s.time)}` : ''}
+                  {s.lat !== null && s.lng !== null && <a href={googleDirectionsLink({ lat: s.lat, lng: s.lng })} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-navy-700 underline"><MapPin size={11} /> Directions</a>}</li>)}</ol>}
               </> : <p className="text-slate-500">A route has not been assigned yet. We will let you know once it is.</p>}
             </div>
           </div>
+          {c.route && c.route.stops.some(s => s.lat !== null && s.lng !== null) && (
+            <div className="mt-5"><p className="text-xs font-extrabold uppercase tracking-wide text-slate-400 mb-2">Route map — pickup and drop-off points</p>
+              <RouteMap stops={c.route.stops.filter(s => s.lat !== null && s.lng !== null).map(s => ({ name: s.name, type: s.type, lat: s.lat as number, lng: s.lng as number, time: s.time }))} height={300} /></div>)}
           <div className="mt-4"><Button variant="navyOutline" size="sm" onClick={() => go('payments')}>View fees &amp; payments</Button></div>
         </Card>
       ))}
