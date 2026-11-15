@@ -11,7 +11,7 @@ Public company website + private admin dashboard for a small transport business
 |-------|-------|-------|
 | 1 | Schema + RLS, auth, admin shell, public website, inquiries, settings, users | **Done** |
 | 2 | Vehicles, drivers, customers, schools, students, routes | **Done** |
-| 3 | Monthly billing, hire bookings, calendar, payments | |
+| 3 | Monthly billing, hire bookings, calendar, payments | **Done** |
 | 4 | Income, expenses, fuel, maintenance, documents | Next |
 | 5 | Analytics, reports, PDF/Excel export, notifications | |
 | 6 | Testing, security review, deployment | |
