@@ -10,9 +10,9 @@ Public company website + private admin dashboard for a small transport business
 | Phase | Scope | State |
 |-------|-------|-------|
 | 1 | Schema + RLS, auth, admin shell, public website, inquiries, settings, users | **Done** |
-| 2 | Vehicles, drivers, customers, schools, students, routes | Next |
+| 2 | Vehicles, drivers, customers, schools, students, routes | **Done** |
 | 3 | Monthly billing, hire bookings, calendar, payments | |
-| 4 | Income, expenses, fuel, maintenance, documents | |
+| 4 | Income, expenses, fuel, maintenance, documents | Next |
 | 5 | Analytics, reports, PDF/Excel export, notifications | |
 | 6 | Testing, security review, deployment | |
 
@@ -28,7 +28,7 @@ The admin sidebar only lists modules that exist; new items appear as each phase 
    SUPABASE_SECRET_KEY=<secret key>      # server-side only, used by scripts/. NEVER prefix with VITE_
    ```
 3. **Database** – open *Supabase → SQL Editor*, paste the whole of
-   `supabase/migrations/0001_transport_schema.sql` and run it once. It creates every table, enum,
+   `supabase/migrations/0001_transport_schema.sql`, run it, then do the same for `0002_billing_bookings.sql`. It creates every table, enum,
    trigger, RLS policy, storage bucket and the seed data (services, expense categories).
 4. **Auth settings** – *Authentication → Providers → Email*: **disable "Allow new users to sign up"**
    (there is no public registration). Under *URL Configuration* add `http://localhost:5173/reset-password`

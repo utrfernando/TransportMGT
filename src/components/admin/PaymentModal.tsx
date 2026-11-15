@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,6 +36,7 @@ const PaymentModal: React.FC<{ target: PaymentTarget | null; onClose: () => void
   const { settings } = useSettings();
   const toast = useToast();
   const [done, setDone] = useState<{ reference: string; amount: number; date: string; method: string; notes: string; balanceAfter: number | null } | null>(null);
+  const busy = useRef(false);
   const key = useMemo(() => crypto.randomUUID(), [target]); // one idempotency key per opened modal
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<V>({
     resolver: zodResolver(schema),
@@ -45,6 +46,12 @@ const PaymentModal: React.FC<{ target: PaymentTarget | null; onClose: () => void
   const close = () => { setDone(null); onClose(); };
 
   const onSubmit = async (v: V) => {
+    if (!target || busy.current) return;   // ignore double-clicks while a submit is in flight
+    busy.current = true;
+    try { await submit(v); } finally { busy.current = false; }
+  };
+
+  const submit = async (v: V) => {
     if (!target) return;
     const amount = Number(v.amount);
     if (target.balance !== undefined && amount > target.balance + 0.001) { setError('amount', { message: `Cannot exceed the balance (${formatMoney(target.balance, settings.currency)})` }); return; }
@@ -54,7 +61,7 @@ const PaymentModal: React.FC<{ target: PaymentTarget | null; onClose: () => void
     else row.student_id = target.studentId;
     const { data, error } = await supabase.from('payments').insert(row).select('reference').single();
     if (error) {
-      if (error.code === '23505' && error.message.includes('idempotency')) { toast.info('This payment was already recorded.'); onSaved(); close(); return; }
+      if (error.code === '23505' && error.message.includes('idempotency')) { toast.info('This payment was already recorded.'); onSaved(); return; }
       toast.error(friendlyError(error)); return;
     }
     toast.success('Payment recorded');

@@ -140,6 +140,7 @@ const AdminBilling: React.FC = () => {
     const { data, error } = await supabase.rpc('generate_monthly_invoices', { p_month: monthStart });
     setGenerating(false); setConfirmGen(false);
     if (error) { toast.error(friendlyError(error)); return; }
+    await supabase.rpc('mark_overdue_invoices');
     const r = (data as { created: number; skipped: number }[])[0];
     toast.success(`${r.created} invoice(s) created, ${r.skipped} already existed`);
     setPage(0); reload();
