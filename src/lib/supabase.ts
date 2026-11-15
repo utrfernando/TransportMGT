@@ -163,3 +163,27 @@ export interface Booking {
 export interface DriverAssignment {
   id: string; booking_id: string; driver_id: string; agreed_fee: number; advance_paid: number; payment_status: 'unpaid' | 'partially_paid' | 'paid';
 }
+
+// ------------------------------------------------------------------
+// Phase 4 entities
+// ------------------------------------------------------------------
+export interface ExpenseCategory { id: string; name: string; is_system: boolean; sort_order: number }
+export interface Expense {
+  id: string; reference: string; expense_date: string; category_id: string; description: string; amount: number;
+  vehicle_id: string | null; booking_id: string | null; payment_method: PaymentMethod; supplier: string | null;
+  receipt_path: string | null; notes: string | null; source: 'manual' | 'fuel' | 'maintenance' | 'driver_payment';
+}
+export interface FuelRecord {
+  id: string; vehicle_id: string; fuel_date: string; fuel_type: FuelType; litres: number; total_cost: number;
+  odometer_km: number | null; fuel_station: string | null; receipt_path: string | null; notes: string | null;
+}
+export type MaintenanceType = 'oil_change' | 'engine_repair' | 'tyre_replacement' | 'battery_replacement' | 'general_service' | 'electrical_repair' | 'other';
+export interface Maintenance {
+  id: string; vehicle_id: string; service_date: string; category: MaintenanceType; description: string | null; service_provider: string | null;
+  cost: number; odometer_km: number | null; next_service_date: string | null; next_service_odometer_km: number | null; receipt_path: string | null;
+}
+export type DocumentType = 'insurance' | 'revenue_licence' | 'emission_certificate' | 'registration' | 'service_invoice' | 'agreement' | 'other';
+export interface VehicleDocument {
+  id: string; vehicle_id: string; doc_type: DocumentType; title: string; file_path: string | null; issue_date: string | null;
+  expiry_date: string | null; renewal_status: 'valid' | 'due_soon' | 'expired' | 'renewed'; notes: string | null;
+}
