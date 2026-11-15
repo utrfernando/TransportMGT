@@ -17,8 +17,8 @@ const headers: Record<string, string> = Object.fromEntries(
  */
 function portalAccountsApi(mode: string): Plugin {
   const env = loadEnv(mode, process.cwd(), '')
-  const attach = (use: Connect.Server['use']) => {
-    use('/api/portal-accounts', (req, res) => {
+  const attach = (mount: Connect.Server['use']) => {
+    mount('/api/portal-accounts', (req, res) => {
       const chunks: Buffer[] = []
       let size = 0
       req.on('data', (c: Buffer) => { size += c.length; if (size < 100_000) chunks.push(c) })
