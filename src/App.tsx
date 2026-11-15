@@ -10,9 +10,12 @@ import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import { About, Services, Vehicles, SchoolTransport, Contact } from './pages/PublicPages';
 import { Login, ForgotPassword, ResetPassword } from './pages/Login';
+import { CustomerLogin, CustomerRegister } from './pages/CustomerAuth';
 
 // The whole admin area (charts, PDF/Excel libraries, forms) is loaded only when a signed-in admin opens it,
 // so public visitors download a much smaller site.
+const Account = lazy(() => import('./pages/Account'));
+const AdminPortal = lazy(() => import('./pages/admin/AdminPortal'));
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
 const page = <T extends string>(loader: () => Promise<Record<T, React.ComponentType>>, name: T) => lazy(() => loader().then(m => ({ default: m[name] })));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -68,9 +71,12 @@ const App: React.FC = () => (
                   <Route path="/vehicles" element={<Vehicles />} />
                   <Route path="/school-transport" element={<SchoolTransport />} />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/account" element={<Account />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
 
+                <Route path="/account/login" element={<CustomerLogin />} />
+                <Route path="/account/register" element={<CustomerRegister />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
@@ -99,6 +105,7 @@ const App: React.FC = () => (
                   <Route path="notifications" element={<AdminNotifications />} />
                   <Route path="audit" element={<AdminAudit />} />
                   <Route path="inquiries" element={<AdminInquiries />} />
+                  <Route path="portal" element={<AdminPortal />} />
                   <Route path="website" element={<AdminWebsite />} />
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="users" element={<AdminUsers />} />

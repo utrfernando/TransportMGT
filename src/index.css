@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -88,3 +88,21 @@ body {
 .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: box; overflow: hidden; }
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: box; overflow: hidden; }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: box; overflow: hidden; }
+
+/* ------------------------------------------------------------------
+   Public website ("guest") theme — a calmer, professional look for a transport company.
+   Everything is scoped to .guest so the admin area keeps its own style untouched.
+   ------------------------------------------------------------------ */
+.guest { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #1e293b; }
+.guest h1, .guest h2, .guest h3, .guest .font-display { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; letter-spacing: -0.02em; }
+.guest *:focus-visible { outline-color: #243c78; }
+.guest input, .guest select, .guest textarea { border-radius: 0.75rem; border-color: #cbd5e1; }
+.guest input:focus, .guest select:focus, .guest textarea:focus { border-color: #243c78; box-shadow: 0 0 0 3px rgba(36, 60, 120, 0.18); }
+.guest ::-webkit-scrollbar-thumb { background: #94b0e0; }
+.guest ::-webkit-scrollbar-track { background: #f3f6fc; }
+
+@keyframes drive { 0% { transform: translateX(-35%); } 100% { transform: translateX(135%); } }
+.animate-drive { animation: drive 26s linear infinite; }
+@keyframes road-move { to { background-position: -96px 0; } }
+.road-dash { background-image: repeating-linear-gradient(90deg, #fbbf24 0 48px, transparent 48px 96px); animation: road-move 2.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-drive, .road-dash, .animate-float, .animate-marquee { animation: none; } }

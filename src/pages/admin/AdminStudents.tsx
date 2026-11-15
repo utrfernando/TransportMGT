@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, subDays } from 'date-fns';
-import { ArrowLeft, Eye, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Eye, KeyRound, Pencil, Plus } from 'lucide-react';
 import { supabase, type Student } from '../../lib/supabase';
 import { check, sanitizeSearch, unwrap } from '../../lib/db';
 import { useQuery } from '../../lib/queries';
@@ -199,7 +199,7 @@ export const AdminStudentDetail: React.FC = () => {
   return (
     <div className="space-y-5">
       <Link to="/admin/students" className="inline-flex items-center gap-1 text-sm font-bold text-ink-500 hover:text-mint-600"><ArrowLeft size={14} /> All students</Link>
-      <AdminHeader title={x.full_name} subtitle={`${x.student_code} · ${x.schools?.name}`} actions={<StatusBadge status={x.status} />} />
+      <AdminHeader title={x.full_name} subtitle={`${x.student_code} · ${x.schools?.name}`} actions={<><Link to={`/admin/portal?student=${x.id}`}><Button variant="outline" size="sm"><KeyRound size={15} /> Portal access code</Button></Link><StatusBadge status={x.status} /></>} />
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Monthly fee" value={m(Number(x.monthly_fee))} tone="mint" />
         <StatCard label="Total paid" value={m(paid)} tone="lavender" />

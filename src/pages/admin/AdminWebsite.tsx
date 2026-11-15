@@ -16,7 +16,7 @@ import { ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Textarea } from '../../components/ui/Input';
 
 const TABS = [{ key: 'home', label: 'Home page' }, { key: 'about', label: 'About & school transport' }, { key: 'services', label: 'Services' }, { key: 'vehicles', label: 'Vehicles' }];
-const HOME_KEYS: ContentKey[] = ['home_hero', 'home_services', 'home_fleet', 'why_choose_us'];
+const HOME_KEYS: ContentKey[] = ['home_hero', 'home_services', 'home_fleet', 'hire_steps', 'why_choose_us'];
 const ABOUT_KEYS: ContentKey[] = ['about_standards', 'school_transport_intro', 'school_service_areas', 'school_steps'];
 
 /** Editor for a list of {title, text} cards. */
@@ -51,6 +51,7 @@ const AdminWebsite: React.FC = () => {
       const clean: SiteContent = { ...draft,
         why_choose_us: { ...draft.why_choose_us, items: draft.why_choose_us.items.filter(i => i.title.trim() || i.text.trim()) },
         school_steps: { items: draft.school_steps.items.filter(i => i.title.trim() || i.text.trim()) },
+        hire_steps: { ...draft.hire_steps, items: draft.hire_steps.items.filter(i => i.title.trim() || i.text.trim()) },
         about_standards: { ...draft.about_standards, items: draft.about_standards.items.map(s => s.trim()).filter(Boolean) } };
       check(await supabase.from('website_content').upsert(keys.map(k => toRow(k, clean[k] as never)), { onConflict: 'key' }));
       toast.success('Saved — the website is updated'); rows.reload();
@@ -101,6 +102,13 @@ const AdminWebsite: React.FC = () => {
                 <Field label="Vehicles heading"><Input maxLength={60} value={draft.home_fleet.title} onChange={e => set('home_fleet', { title: e.target.value })} /></Field>
                 <Field label="Vehicles sub-text"><Input maxLength={200} value={draft.home_fleet.body} onChange={e => set('home_fleet', { body: e.target.value })} /></Field>
               </div>
+            </Card>
+            <Card title="“How hiring works”">
+              <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                <Field label="Heading"><Input maxLength={60} value={draft.hire_steps.title} onChange={e => set('hire_steps', { title: e.target.value })} /></Field>
+                <Field label="Sub-text"><Input maxLength={200} value={draft.hire_steps.body} onChange={e => set('hire_steps', { body: e.target.value })} /></Field>
+              </div>
+              <ItemsEditor items={draft.hire_steps.items} onChange={items => set('hire_steps', { items })} max={5} noun="hiring step" />
             </Card>
             <Card title="“Why choose us”">
               <div className="grid sm:grid-cols-2 gap-4 mb-4">

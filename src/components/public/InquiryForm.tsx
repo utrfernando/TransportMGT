@@ -29,7 +29,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }> = ({ defaultService, defaultVehicle }) => {
+const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string; defaultDate?: string; defaultPassengers?: string }> = ({ defaultService, defaultVehicle, defaultDate, defaultPassengers }) => {
   const { settings } = useSettings();
   const vehicles = usePublicVehicles();
   const services = usePublicServices();
@@ -40,7 +40,7 @@ const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { service: defaultService ?? '', email: '', driver_requirement: 'any', preferred_vehicle: defaultVehicle ?? '' },
+    defaultValues: { service: defaultService ?? '', email: '', driver_requirement: 'any', preferred_vehicle: defaultVehicle ?? '', travel_date: defaultDate ?? '', passenger_count: defaultPassengers ?? '' },
   });
 
   const onSubmit = async (v: FormValues) => {
@@ -65,10 +65,10 @@ const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }
   if (done) {
     return (
       <div className="text-center py-10">
-        <CheckCircle2 className="mx-auto text-mint-500 mb-3" size={56} />
+        <CheckCircle2 className="mx-auto text-emerald-500 mb-3" size={56} />
         <h3 className="font-display text-2xl font-extrabold text-ink-900">Thank you! Inquiry received</h3>
         <p className="text-ink-500 mt-2">Your reference is <b className="text-ink-900">{done}</b>. We will contact you shortly.</p>
-        <Button className="mt-6" variant="outline" onClick={() => setDone(null)}>Send another inquiry</Button>
+        <Button className="mt-6" variant="navyOutline" onClick={() => setDone(null)}>Send another inquiry</Button>
       </div>
     );
   }
@@ -107,8 +107,8 @@ const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }
 
       {submitError && <p className="sm:col-span-2 text-sm font-semibold text-red-500">{submitError}</p>}
       <div className="sm:col-span-2 flex flex-wrap gap-3">
-        <Button type="submit" size="lg" loading={isSubmitting}><Send size={18} /> Send inquiry</Button>
-        {wa && <a href={wa} target="_blank" rel="noreferrer"><Button type="button" variant="outline" size="lg"><MessageCircle size={18} /> Send via WhatsApp</Button></a>}
+        <Button type="submit" size="lg" variant="navy" loading={isSubmitting}><Send size={18} /> Send inquiry</Button>
+        {wa && <a href={wa} target="_blank" rel="noreferrer"><Button type="button" variant="navyOutline" size="lg"><MessageCircle size={18} /> Send via WhatsApp</Button></a>}
       </div>
     </form>
   );

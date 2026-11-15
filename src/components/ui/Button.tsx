@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'sunshine' | 'lavender' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'sunshine' | 'lavender' | 'outline' | 'ghost' | 'danger' | 'navy' | 'amber' | 'navyOutline' | 'navyGhost' | 'lightOutline';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   children: React.ReactNode;
@@ -20,6 +20,12 @@ export const Button: React.FC<ButtonProps> = ({
     outline: 'border-2 border-mint-500 text-mint-700 hover:bg-mint-50',
     ghost: 'text-ink-700 hover:bg-ink-100',
     danger: 'bg-red-500 text-white hover:bg-red-600',
+    // public-website styles
+    navy: 'rounded-xl bg-navy-800 text-white hover:bg-navy-700 shadow-lg shadow-navy-900/10',
+    amber: 'rounded-xl bg-sunshine-400 text-navy-950 hover:bg-sunshine-300 shadow-lg shadow-sunshine-500/20',
+    navyOutline: 'rounded-xl border-2 border-navy-200 text-navy-800 hover:bg-navy-50',
+    navyGhost: 'rounded-xl text-navy-800 hover:bg-navy-50',
+    lightOutline: 'rounded-xl border-2 border-white/40 text-white hover:bg-white/10',
   };
   const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-5 py-2.5 text-base', lg: 'px-7 py-3.5 text-lg' };
 

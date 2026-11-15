@@ -11,7 +11,8 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
 | Area | Highlights |
 |------|-----------|
 | Public website | Home, About, Services, Vehicles, School Transport, Contact, validated inquiry form (+ WhatsApp), 404 page — **all text, services and vehicles are edited from Admin → Website** |
-| Admin sign-in | Email/password, password reset, `OWNER` / `ADMIN` roles, no public registration, deactivation |
+| Admin sign-in | Email/password, password reset, `OWNER` / `ADMIN` roles, no public staff registration, deactivation |
+| Customer & parent portal | Parents and hire customers sign up, link their records with a one-time access code, then see their child's route, fees, payments, receipts and hires |
 | Fleet | Vehicles (photos, expiry dates, public listing), drivers, documents & renewals, maintenance, fuel |
 | School transport | Schools, students, routes with stops, history-preserving route assignments |
 | Billing | Idempotent monthly invoices, part-month pro-rating, partial / advance payments, adjustments, PDF receipts |
@@ -30,13 +31,16 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
    ```
 3. **Database** – in *Supabase → SQL Editor* run these files **in order**, each once:
    `supabase/migrations/0001_transport_schema.sql` → `0002_billing_bookings.sql` → `0003_finance_upkeep.sql` →
-   `0004_reports_notifications.sql` → `0005_hardening.sql`.
+   `0004_reports_notifications.sql` → `0005_hardening.sql` → `0006_customer_portal.sql`.
 4. **Auth settings** (*Authentication* in the dashboard):
-   - **Turn OFF "Allow new users to sign up"** (Sign In / Providers). This system has no public registration.
+   - **Keep "Allow new users to sign up" ON and "Confirm email" ON** (Sign In / Providers). Parents and customers create their own
+     accounts. A new account can see **nothing** until you give it an access code (see *Customer & parent portal* below), and staff
+     accounts can only be created with `npm run create-admin`. Because sign-up is open, also enable **CAPTCHA** (*Authentication →
+     Attack Protection → Turnstile/hCaptcha*) to keep bots from filling the user list.
    - *URL Configuration*: set **Site URL** to your production address and add `http://localhost:5173/reset-password`
      and `https://<your-domain>/reset-password` to **Redirect URLs** (password reset links depend on it).
-   - *Email*: Supabase's built-in mailer is heavily rate-limited. For reliable password-reset emails add your own SMTP
-     provider (*Authentication → Emails → SMTP Settings*).
+   - *Email*: confirmation and password-reset emails are essential now. Supabase's built-in mailer is limited to a couple of emails
+     per hour, so add your own SMTP provider (*Authentication → Emails → SMTP Settings*) before inviting customers.
    - Optionally raise the minimum password length (*Sign In / Providers → Email*).
 5. **Create the two administrators** from a trusted computer:
    ```bash
@@ -48,6 +52,22 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
 6. **Run it:** `npm run dev` → http://localhost:5173 (admin at `/login`).
 7. In the admin area open **Business Settings** and fill in the business name, logo, phone, WhatsApp, address and social links.
 
+## Customer & parent portal
+
+Parents/guardians and hire customers get their own login at `/account` (linked from the website header).
+
+1. They create an account (`/account/register`) and confirm their email.
+2. In **Admin → Portal Access** (or the *Portal access code* button on a student / customer) you create a **one-time access code**
+   for their child (siblings sharing a guardian phone are pre-ticked) or their hire records, and send it by WhatsApp or phone.
+   Only give a code to someone you have verified yourself.
+3. They enter the code on their account page. From then on they see **only** their linked records: route, stops and timings,
+   monthly fees, payments and receipts (PDF), and hires with balances. You can remove access at any time.
+
+How it is kept safe: customers have no database table access at all — everything they see comes from fixed `portal_*` database
+functions that return curated columns for the records linked to *their* login (never notes, expenses, margins, registration numbers,
+other families' data). Codes are random, single-use, expire (7–30 days), are stored only as a hash and are shown to you once;
+wrong guesses are limited to 5 per hour per account; an email address must be confirmed before a code can be redeemed.
+
 ## Scripts
 
 | Command | Purpose |
@@ -55,7 +75,7 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
 | `npm run dev` / `build` / `preview` | develop · production build · serve the build locally **with the production security headers** |
 | `npm test` | app unit tests (Vitest) |
 | `npm run test:db` | business-rule tests for every SQL migration, in an in-process Postgres (no Supabase needed) |
-| `npm run security-check` | **live** check against your Supabase project: what the public, a signed-in non-admin, an ADMIN and a deactivated admin can and cannot do (creates and deletes throw-away users) |
+| `npm run security-check` | **live** check against your Supabase project: what the public, a signed-in non-admin, an ADMIN, a deactivated admin and linked parents can and cannot do — including that one family can never see another's data (creates and deletes throw-away users and records; `--probe-signup` also checks the sign-up endpoint) |
 | `npm run create-admin` | provision an administrator account |
 | `npm run lint` | static analysis |
 
@@ -65,6 +85,7 @@ Run `npm run security-check` after every database change and after deployment. I
 
 - **Row Level Security on every table.** A request is allowed only if it comes from an *active* row in `profiles`
   (`is_admin()`); only an `OWNER` can create, change or deactivate accounts. Front-end route guards are for convenience only.
+- **Customers (parents / hirers)** read through the `portal_*` functions only, limited to records linked to them by a one-time code.
 - **The public can read** only published `services`, `website_content`, and the `public_vehicles` view (title, seats, fuel type,
   description — never registration numbers, notes or odometer). Student, customer, financial and inquiry data is unreachable.
 - **Inquiry form** goes through the `submit_inquiry()` function: server-side validation, a per-phone and an overall hourly limit;
@@ -116,6 +137,8 @@ published from here: registration numbers, notes and student data are never part
 
 ## Known limitations
 
+- Customers cannot pay online yet; the portal shows what is owed and payments are recorded by staff.
+- A parent who loses access to their email must be re-linked with a new code.
 - Customer "contact history" (call/message log) is not built; notes on the customer record are used instead.
 - Alerts are in-app only; there are no automatic email/SMS reminders.
 - New administrators are created with `npm run create-admin` on a trusted computer (no in-app invite email), so the secret key

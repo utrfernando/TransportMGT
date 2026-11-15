@@ -10,6 +10,7 @@ export interface SiteContent {
   home_hero: { badge: string; title: string; highlight: string; body: string; cta_primary: string; cta_secondary: string };
   home_services: { title: string; body: string };
   home_fleet: { title: string; body: string };
+  hire_steps: { title: string; body: string; items: Item[] };
   why_choose_us: { title: string; body: string; items: Item[] };
   about_standards: { title: string; items: string[] };
   school_transport_intro: { title: string; body: string };
@@ -26,6 +27,14 @@ export const DEFAULT_CONTENT: SiteContent = {
   },
   home_services: { title: 'Our services', body: 'From the daily school run to a full-day tour, we have a vehicle and a driver for it.' },
   home_fleet: { title: 'Featured vehicles', body: 'Clean, comfortable and regularly serviced.' },
+  hire_steps: {
+    title: 'Hiring a vehicle is simple', body: 'Three easy steps from first message to a comfortable journey.',
+    items: [
+      { title: 'Tell us your trip', text: 'Share the date, pickup, destination and how many people are travelling.' },
+      { title: 'Get a clear quote', text: 'We confirm availability and send a price with no hidden charges.' },
+      { title: 'Travel in comfort', text: 'Your vehicle and driver arrive on time and take you there safely.' },
+    ],
+  },
   why_choose_us: {
     title: 'Why choose us', body: 'Experienced drivers, well-maintained vehicles and transparent pricing.',
     items: [
@@ -75,6 +84,7 @@ export function mergeContent(rows: Record<string, WebsiteContent>): SiteContent 
     },
     home_services: { title: str(r('home_services')?.title, D.home_services.title), body: str(r('home_services')?.body, D.home_services.body) },
     home_fleet: { title: str(r('home_fleet')?.title, D.home_fleet.title), body: str(r('home_fleet')?.body, D.home_fleet.body) },
+    hire_steps: { title: str(r('hire_steps')?.title, D.hire_steps.title), body: str(r('hire_steps')?.body, D.hire_steps.body), items: items(d('hire_steps').items, D.hire_steps.items) },
     why_choose_us: { title: str(r('why_choose_us')?.title, D.why_choose_us.title), body: str(r('why_choose_us')?.body, D.why_choose_us.body), items: items(d('why_choose_us').items, D.why_choose_us.items) },
     about_standards: { title: str(r('about_standards')?.title, D.about_standards.title), items: lines(d('about_standards').items, D.about_standards.items) },
     school_transport_intro: { title: str(r('school_transport_intro')?.title, D.school_transport_intro.title), body: str(r('school_transport_intro')?.body, D.school_transport_intro.body) },
