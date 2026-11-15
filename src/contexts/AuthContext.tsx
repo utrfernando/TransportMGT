@@ -9,6 +9,8 @@ interface AuthContextType {
   isOwner: boolean;
   /** signed in but not staff: a parent / hire customer using the portal */
   isCustomer: boolean;
+  /** what a non-staff login is: a driver, a family/customer, or both (null until known) */
+  kind: { driver: boolean; family: boolean } | null;
   userEmail: string | null;
   userName: string | null;
   /** the business set a temporary password: the customer must choose their own before using the portal */
@@ -36,12 +38,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userName, setUserName] = useState<string | null>(null);
   const [mustChangePassword, setMustChange] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [kind, setKind] = useState<{ driver: boolean; family: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async (uid: string) => {
     // RLS lets a user read their own row only (admins read all).
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
     setProfile((data as Profile | null) ?? null);
+    if (data) { setKind(null); return; }
+    const { data: k } = await supabase.rpc('portal_whoami');
+    setKind((k as { driver: boolean; family: boolean } | null) ?? { driver: false, family: true });
   }, []);
 
   useEffect(() => {
@@ -65,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserEmail(session?.user?.email ?? null);
       setUserName((session?.user?.user_metadata?.full_name as string | undefined) ?? null);
       setMustChange(session?.user?.user_metadata?.must_change_password === true);
-      if (!uid) { setProfile(null); return; }
+      if (!uid) { setProfile(null); setKind(null); return; }
       // defer: calling supabase inside this callback can deadlock
       setTimeout(() => { fetchProfile(uid); }, 0);
     });
@@ -102,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setKind(null);
     setAuthUserId(null);
   };
 
@@ -122,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isCustomer = !!authUserId && !isAdmin;
 
   return (
-    <AuthContext.Provider value={{ profile, authUserId, loading, isAdmin, isOwner, isCustomer, userEmail, userName, mustChangePassword, signIn, signInCustomer, signUp, signOut, sendPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ profile, authUserId, loading, isAdmin, isOwner, isCustomer, kind, userEmail, userName, mustChangePassword, signIn, signInCustomer, signUp, signOut, sendPasswordReset, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

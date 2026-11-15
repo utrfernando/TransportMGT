@@ -15,14 +15,14 @@ const loginSchema = z.object({ email: z.string().trim().email('Enter a valid ema
 
 /** Parents, guardians and hire customers sign in here. Staff use /login. */
 export const CustomerLogin: React.FC = () => {
-  const { signInCustomer, authUserId, loading } = useAuth();
+  const { signInCustomer, authUserId, loading, kind, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const next = params.get('next');
   const dest = next && next.startsWith('/account') ? next : '/account';
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(loginSchema) });
-  if (!loading && authUserId) return <Navigate to={dest} replace />;
+  if (!loading && authUserId && (isAdmin || kind)) return <Navigate to={kind?.driver && !kind.family ? '/driver' : dest} replace />;
   return (
     <AuthShell title="Sign in to your account" subtitle="See your child’s route and fees, or your hires and payments.">
       <form className="space-y-4" noValidate onSubmit={handleSubmit(async v => {

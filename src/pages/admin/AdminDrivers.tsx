@@ -18,6 +18,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback';
 import { Field, Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { DriverAccountCard } from '../../components/admin/PortalAccounts';
 
 const PAGE = 12;
 type Row = Driver & { vehicles: { name: string } | null };
@@ -83,6 +84,7 @@ const DriverDetail: React.FC<{ driver: Row }> = ({ driver }) => {
   const upcoming = q.data.bookings.filter(b => ['confirmed', 'in_progress'].includes(b.status) && new Date(b.start_at) >= new Date()).length;
   return (
     <div className="space-y-5">
+      <DriverAccountCard driverId={driver.id} defaults={{ name: driver.full_name, phone: driver.phone }} />
       <KV items={[['Phone', driver.phone], ['Licence', driver.licence_number], ['Licence expiry', <ExpiryDate date={driver.licence_expiry} />], ['Emergency contact', driver.emergency_contact],
         ['Vehicle', driver.vehicles?.name], ['Availability', upcoming ? `${upcoming} upcoming booking(s)` : 'Free'], ['Address', driver.address], ['Notes', driver.notes]]} />
       {q.loading ? <Skeleton className="h-24" /> : <>

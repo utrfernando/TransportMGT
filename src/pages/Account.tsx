@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import RouteMap from '../components/maps/RouteMap';
 import { googleDirectionsLink } from '../lib/maps';
 import { Field, Input } from '../components/ui/Input';
+import MustChangePassword from '../components/public/MustChangePassword';
 import { ErrorState, Skeleton } from '../components/ui/Feedback';
 
 // ----- the shapes returned by the portal_* database functions (curated columns only) -----
@@ -224,31 +225,11 @@ const Profile: React.FC<{ ov: Overview; onLinked: () => void }> = ({ ov, onLinke
   );
 };
 
-// -------------------------------------------------- first sign-in with a temporary password
-const MustChangePassword: React.FC = () => {
-  const { updatePassword } = useAuth();
-  const toast = useToast();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(pwSchema) });
-  return (
-    <Card className="border-2 border-sunshine-300">
-      <h2 className="font-display text-lg font-bold text-navy-900 flex items-center gap-2"><KeyRound size={20} className="text-sunshine-600" /> Choose your own password</h2>
-      <p className="text-sm text-slate-600 mt-1">We gave you a temporary password. For your security, please choose a new one that only you know. Your account stays locked to this step until you do.</p>
-      <form className="grid sm:grid-cols-2 gap-4 max-w-xl mt-4" noValidate onSubmit={handleSubmit(async v => {
-        try { await updatePassword(v.password); toast.success('Password saved. Welcome!'); } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save the password'); }
-      })}>
-        <Field label="New password" error={errors.password?.message} hint="At least 10 characters"><Input type="password" autoComplete="new-password" {...register('password')} /></Field>
-        <Field label="Confirm" error={errors.confirm?.message}><Input type="password" autoComplete="new-password" {...register('confirm')} /></Field>
-        <div className="sm:col-span-2"><Button type="submit" variant="navy" loading={isSubmitting}>Save my password</Button></div>
-      </form>
-    </Card>
-  );
-};
-
 // ---------------------------------------------------------------- page
 const TABS = [{ key: 'overview', label: 'Overview', icon: UserRound }, { key: 'payments', label: 'Fees & payments', icon: Wallet }, { key: 'hires', label: 'My hires', icon: Bus }, { key: 'profile', label: 'Profile', icon: ShieldCheck }];
 
 const Account: React.FC = () => {
-  const { authUserId, loading, userName, signOut, mustChangePassword } = useAuth();
+  const { authUserId, loading, userName, signOut, mustChangePassword, isAdmin, kind } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
 
@@ -258,8 +239,9 @@ const Account: React.FC = () => {
     return { ov: o.data as Overview, invoices: (i.data ?? []) as InvoiceRow[], payments: (p.data ?? []) as PaymentRow[], bookings: (b.data ?? []) as BookingRow[] };
   }, null as { ov: Overview; invoices: InvoiceRow[]; payments: PaymentRow[]; bookings: BookingRow[] } | null, [authUserId]);
 
-  if (loading) return <div className="py-32 text-center text-slate-400 font-bold" role="status">Loading…</div>;
+  if (loading || (authUserId && !isAdmin && !kind)) return <div className="py-32 text-center text-slate-400 font-bold" role="status">Loading…</div>;
   if (!authUserId) return <Navigate to="/account/login?next=/account" replace />;
+  if (kind?.driver && !kind.family) return <Navigate to="/driver" replace />;     // a driver's login has his own page
 
   const d = load.data;
   const linked = !!d && (d.ov.students.length > 0 || d.ov.customers.length > 0);

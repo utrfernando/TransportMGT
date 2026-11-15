@@ -15,6 +15,7 @@ import { CustomerLogin, CustomerRegister } from './pages/CustomerAuth';
 // The whole admin area (charts, PDF/Excel libraries, forms) is loaded only when a signed-in admin opens it,
 // so public visitors download a much smaller site.
 const Account = lazy(() => import('./pages/Account'));
+const Driver = lazy(() => import('./pages/Driver'));
 const AdminPortal = lazy(() => import('./pages/admin/AdminPortal'));
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
 const page = <T extends string>(loader: () => Promise<Record<T, React.ComponentType>>, name: T) => lazy(() => loader().then(m => ({ default: m[name] })));
@@ -72,6 +73,7 @@ const App: React.FC = () => (
                   <Route path="/school-transport" element={<SchoolTransport />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/account" element={<Account />} />
+                  <Route path="/driver" element={<Driver />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
 

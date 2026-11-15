@@ -6,7 +6,7 @@ const ADMIN = '11111111-1111-4111-8111-111111111111', FAMILY = '22222222-2222-42
 const S1 = '55555555-5555-4555-8555-555555555555', C1 = '66666666-6666-4666-8666-666666666666';
 
 /** A tiny in-memory stand-in for Supabase: records every call and answers like the real service would. */
-function fake(opts: { adminToken?: string; existing?: Record<string, string>; staff?: string[]; withLinks?: string[]; linkFails?: boolean; createStatus?: number; createMsg?: string } = {}) {
+function fake(opts: { adminToken?: string; existing?: Record<string, string>; staff?: string[]; withLinks?: string[]; linkFails?: boolean; drivers?: string[]; driverRows?: unknown[]; createStatus?: number; createMsg?: string } = {}) {
   const calls: { method: string; path: string; body: unknown; key: string }[] = [];
   const existing = opts.existing ?? { 'family@x.com': FAMILY }, staff = opts.staff ?? [STAFF], withLinks = opts.withLinks ?? [FAMILY];
   const impl = (async (url: string, init: RequestInit = {}) => {
@@ -20,6 +20,9 @@ function fake(opts: { adminToken?: string; existing?: Record<string, string>; st
     if (path === '/rest/v1/rpc/portal_admin_find_user') return json(200, existing[body.p_email] ?? null);
     if (path === '/rest/v1/rpc/portal_admin_is_staff') return json(200, staff.includes(body.p_user));
     if (path === '/rest/v1/rpc/portal_admin_has_links') return json(200, withLinks.includes(body.p_user));
+    if (path === '/rest/v1/rpc/driver_admin_is_driver') return json(200, (opts.drivers ?? []).includes(body.p_user));
+    if (path === '/rest/v1/rpc/driver_admin_link') return opts.linkFails ? json(400, { message: 'This driver already has a login. Remove it first.' }) : json(200, { driver: 'D' });
+    if (path.startsWith('/rest/v1/drivers')) return json(200, opts.driverRows ?? [{ full_name: 'Kapila', user_id: NEW }]);
     if (path === '/rest/v1/rpc/portal_admin_link') return opts.linkFails ? json(400, { message: 'A selected student does not exist' }) : json(200, { students: body.p_students.length, customers: body.p_customers.length });
     if (path === '/auth/v1/admin/users' && method === 'POST') return opts.createStatus ? json(opts.createStatus, { msg: opts.createMsg ?? 'nope' }) : json(200, { id: NEW, email: body.email });
     if (path.startsWith('/auth/v1/invite')) return opts.createStatus ? json(opts.createStatus, { msg: opts.createMsg ?? 'nope' }) : json(200, { id: NEW, email: body.email });
@@ -138,5 +141,38 @@ describe('managing an existing family login', () => {
   it('reports sign-in status only for family logins', async () => {
     const r = await handlePortalAccounts(req({ action: 'status', user_ids: [FAMILY, STAFF] }), env, f.impl);
     expect(r.body.users).toEqual([{ id: FAMILY, email: 'family@x.com', last_sign_in_at: '2026-11-01T00:00:00Z', confirmed: true, banned: false, must_change_password: false }]);
+  });
+});
+
+describe('driver accounts', () => {
+  const DR = '88888888-8888-4888-8888-888888888888';
+  const body = (over: Record<string, unknown> = {}) => ({ action: 'create_driver', email: 'Kapila@X.com', driver_id: DR, mode: 'password', password: 'S3cure-passw0rd', ...over });
+  it('creates the login for the driver, forces a password change and links it', async () => {
+    const r = await handlePortalAccounts(req(body()), env, f.impl);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ user_id: NEW, email: 'kapila@x.com', created: true });
+    expect(f.calls.find(c => c.path === '/auth/v1/admin/users' && c.method === 'POST')!.body).toMatchObject({ email_confirm: true, user_metadata: { must_change_password: true } });
+    expect(f.calls.find(c => c.path.endsWith('driver_admin_link'))!.body).toMatchObject({ p_user: NEW, p_driver: DR, p_by: ADMIN });
+    expect(JSON.stringify(r.body)).not.toContain('S3cure');
+  });
+  it('refuses a staff email and removes a fresh login if linking fails', async () => {
+    const g = fake({ existing: { 'kapila@x.com': STAFF } });
+    expect((await handlePortalAccounts(req(body()), env, g.impl)).status).toBe(409);
+    const h = fake({ linkFails: true });
+    expect((await handlePortalAccounts(req(body()), env, h.impl)).status).toBe(400);
+    expect(h.calls.some(c => c.method === 'DELETE' && c.path === `/auth/v1/admin/users/${NEW}`)).toBe(true);
+  });
+  it('can manage a driver login but still never a staff one', async () => {
+    const g = fake({ drivers: [NEW] });
+    expect((await handlePortalAccounts(req({ action: 'set_banned', user_id: NEW, banned: true }), env, g.impl)).status).toBe(200);
+    expect((await handlePortalAccounts(req({ action: 'set_banned', user_id: STAFF, banned: true }), env, g.impl)).status).toBe(403);
+  });
+  it('removing a driver login unlinks it and deletes the login unless it is also a family login', async () => {
+    const g = fake({ driverRows: [{ user_id: NEW }] });
+    expect((await handlePortalAccounts(req({ action: 'remove_driver_login', driver_id: DR }), env, g.impl)).body).toMatchObject({ removed: true });
+    expect(g.calls.some(c => c.method === 'DELETE' && c.path === `/auth/v1/admin/users/${NEW}`)).toBe(true);
+    const h = fake({ driverRows: [{ user_id: FAMILY }] });
+    await handlePortalAccounts(req({ action: 'remove_driver_login', driver_id: DR }), env, h.impl);
+    expect(h.calls.some(c => c.method === 'DELETE')).toBe(false);
   });
 });

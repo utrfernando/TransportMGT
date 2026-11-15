@@ -16,7 +16,7 @@ import { Modal } from '../ui/Modal';
 
 type Mode = 'invite' | 'password';
 
-export interface AccountTarget { studentIds?: string[]; customerIds?: string[]; name?: string; email?: string; phone?: string; label?: string }
+export interface AccountTarget { driverId?: string; studentIds?: string[]; customerIds?: string[]; name?: string; email?: string; phone?: string; label?: string }
 
 // ------------------------------------------------------------------------------------------ create
 /** Create (or link) the online login for a student's family or a hire customer. */
@@ -37,13 +37,15 @@ export const AccountModal: React.FC<{ open: boolean; target: AccountTarget; onCl
     setName(target.name ?? ''); setEmail(target.email ?? ''); setMode('invite'); setPassword(''); setShow(false); setError(null); setResult(null); setCopied(false);
   }, [open, target.name, target.email]);
 
-  const count = (target.studentIds?.length ?? 0) + (target.customerIds?.length ?? 0);
+  const count = (target.studentIds?.length ?? 0) + (target.customerIds?.length ?? 0) + (target.driverId ? 1 : 0);
   const valid = name.trim().length >= 2 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && (mode === 'invite' || password.length >= 10);
 
   const submit = async () => {
     setBusy(true); setError(null);
     try {
-      const r = await callPortalApi<CreateResult>({ action: 'create', email: email.trim(), full_name: name.trim(), phone: target.phone || undefined, student_ids: target.studentIds ?? [], customer_ids: target.customerIds ?? [], mode, password: mode === 'password' ? password : undefined });
+      const r = target.driverId
+        ? await callPortalApi<CreateResult>({ action: 'create_driver', email: email.trim(), driver_id: target.driverId, mode, password: mode === 'password' ? password : undefined })
+        : await callPortalApi<CreateResult>({ action: 'create', email: email.trim(), full_name: name.trim(), phone: target.phone || undefined, student_ids: target.studentIds ?? [], customer_ids: target.customerIds ?? [], mode, password: mode === 'password' ? password : undefined });
       setResult({ ...r, password: mode === 'password' && r.created ? password : undefined });
       onDone();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not create the account'); } finally { setBusy(false); }
@@ -66,14 +68,14 @@ export const AccountModal: React.FC<{ open: boolean; target: AccountTarget; onCl
               {wa && <a href={wa} target="_blank" rel="noreferrer"><Button variant="outline"><MessageCircle size={16} /> Send on WhatsApp</Button></a>}
             </div></>}
           {result.mode === 'invite' && <p className="text-ink-700"><Mail className="mx-auto mb-2 text-mint-600" size={36} />An invitation email was sent to <b>{result.email}</b>. They open the link, choose a password and can then sign in. Check your spam folder if it doesn’t arrive, and see <i>Business Settings → email</i> if you have not added your own email sender yet.</p>}
-          {result.mode === 'existing' && <p className="text-ink-700"><ShieldCheck className="mx-auto mb-2 text-mint-600" size={36} /><b>{result.email}</b> already has a login, so it was simply linked to {result.linked.students ? `${result.linked.students} student(s)` : ''}{result.linked.students && result.linked.customers ? ' and ' : ''}{result.linked.customers ? 'the customer record' : ''}. Their password was not changed.</p>}
+          {result.mode === 'existing' && <p className="text-ink-700"><ShieldCheck className="mx-auto mb-2 text-mint-600" size={36} /><b>{result.email}</b> already has a login, so it was simply linked to {target.driverId ? 'this driver' : <>{result.linked?.students ? `${result.linked.students} student(s)` : ''}{result.linked?.students && result.linked?.customers ? ' and ' : ''}{result.linked?.customers ? 'the customer record' : ''}</>}. Their password was not changed.</p>}
           <div><Button variant="ghost" onClick={onClose}>Done</Button></div>
         </div>
       ) : (
         <div className="space-y-5">
-          <p className="text-sm text-ink-600">{target.label ? <>For <b>{target.label}</b>. </> : null}They will sign in at <b>{window.location.origin}/account</b> and see only {count > 1 ? 'these records' : 'this record'}: route and timings, fees, payments, receipts and hires.</p>
+          <p className="text-sm text-ink-600">{target.label ? <>For <b>{target.label}</b>. </> : null}They will sign in at <b>{window.location.origin}/account</b> and see only {target.driverId ? 'what you have assigned to this driver: his routes, students, vehicles and hire trips. No fees, payments or prices.' : <>{count > 1 ? 'these records' : 'this record'}: route and timings, fees, payments, receipts and hires.</>}</p>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Parent / guardian name *"><Input value={name} onChange={e => setName(e.target.value)} maxLength={120} /></Field>
+            <Field label={target.driverId ? 'Driver name *' : 'Parent / guardian name *'}><Input value={name} onChange={e => setName(e.target.value)} maxLength={120} /></Field>
             <Field label="Email address *" hint="This becomes the sign-in name."><Input type="email" value={email} onChange={e => setEmail(e.target.value)} maxLength={200} autoComplete="off" /></Field>
           </div>
           <fieldset className="space-y-2">
@@ -202,6 +204,44 @@ export const OnlineAccountCard: React.FC<{ studentId?: string; customerId?: stri
       <AccountModal open={open} target={{ ...defaults, studentIds: studentId ? [studentId] : [], customerIds: customerId ? [customerId] : [] }} onClose={() => setOpen(false)} onDone={reload} />
       <ConfirmDialog open={!!remove} danger title="Remove access?" confirmLabel="Remove access" message={`${remove?.email} will immediately stop seeing this record. Their login still exists and can be linked again later.`} onClose={() => setRemove(null)}
         onConfirm={async () => { if (!remove) return; const { error } = await supabase.rpc('revoke_portal_link', { p_link: remove.id }); if (error) toast.error(friendlyError(error)); else { toast.success('Access removed'); reload(); } setRemove(null); }} />
+    </div>
+  );
+};
+
+// ------------------------------------------------------------------------- card on a driver
+/** "Online account" panel for a driver: his own login shows him only what is assigned to him. */
+export const DriverAccountCard: React.FC<{ driverId: string; defaults: AccountTarget }> = ({ driverId, defaults }) => {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [remove, setRemove] = useState(false);
+  const link = useQuery(async () => {
+    const { data, error } = await supabase.from('drivers').select('user_id').eq('id', driverId).maybeSingle();
+    if (error) throw new Error(friendlyError(error));
+    return (data as { user_id: string | null } | null)?.user_id ?? null;
+  }, null as string | null, [driverId]);
+  const uid = link.data;
+  const statuses = useAccountStatuses(uid ? [uid] : []);
+  const st = uid ? statuses.data[uid] : undefined;
+  const reload = () => { link.reload(); statuses.reload(); };
+
+  return (
+    <div className="rounded-3xl border border-ink-100 bg-white p-5 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h3 className="font-display text-base font-bold text-ink-900 flex items-center gap-2"><ShieldCheck size={18} className="text-mint-600" /> Driver login</h3>
+        {!uid && !link.loading && <Button size="sm" onClick={() => setOpen(true)}><UserPlus size={15} /> Create driver login</Button>}
+      </div>
+      {link.error ? <p className="text-sm text-red-600">{link.error}</p> : link.loading ? <p className="text-sm text-ink-400">Loading…</p> : !uid
+        ? <p className="text-sm text-ink-600">No login yet. Create one so this driver can sign in and see only his own routes, students, vehicle and trips.</p>
+        : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="min-w-0"><b className="text-ink-900 break-all">{st?.email ?? 'Login created'}</b><br /><span className="text-xs text-ink-400">{st?.last_sign_in_at ? `Last sign-in ${format(new Date(st.last_sign_in_at), 'dd MMM yyyy, HH:mm')}` : 'Has not signed in yet'}</span></span>
+            <span className="flex flex-wrap items-center gap-2">{statusBadge(st)}
+              <AccountActions userId={uid} email={st?.email ?? ''} status={st} onChanged={statuses.reload} />
+              <button title="Remove this driver’s login" aria-label="Remove login" onClick={() => setRemove(true)} className="p-2 rounded-full hover:bg-ink-100 text-red-500"><UserX size={16} /></button></span>
+          </div>)}
+      <AccountModal open={open} target={{ ...defaults, driverId }} onClose={() => setOpen(false)} onDone={reload} />
+      <ConfirmDialog open={remove} danger title="Remove this login?" confirmLabel="Remove login" message={`${st?.email ?? 'This login'} will no longer be able to sign in as this driver. The driver record is kept, and you can create a new login later.`} onClose={() => setRemove(false)}
+        onConfirm={async () => { try { await callPortalApi({ action: 'remove_driver_login', driver_id: driverId }); toast.success('Login removed'); reload(); } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not remove the login'); } setRemove(false); }} />
     </div>
   );
 };

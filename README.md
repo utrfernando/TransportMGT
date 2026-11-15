@@ -31,7 +31,7 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
    ```
 3. **Database** – in *Supabase → SQL Editor* run these files **in order**, each once:
    `supabase/migrations/0001_transport_schema.sql` → `0002_billing_bookings.sql` → `0003_finance_upkeep.sql` →
-   `0004_reports_notifications.sql` → `0005_hardening.sql` → `0006_customer_portal.sql` → `0007_admin_provisioned_accounts.sql` → `0008_route_stop_locations.sql`.
+   `0004_reports_notifications.sql` → `0005_hardening.sql` → `0006_customer_portal.sql` → `0007_admin_provisioned_accounts.sql` → `0008_route_stop_locations.sql` → `0009_driver_accounts.sql`.
 4. **Auth settings** (*Authentication* in the dashboard):
    - **Keep "Allow new users to sign up" ON and "Confirm email" ON** (Sign In / Providers). Parents and customers create their own
      accounts. A new account can see **nothing** until you give it an access code (see *Customer & parent portal* below), and staff

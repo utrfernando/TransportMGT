@@ -19,6 +19,8 @@ const person = { full_name: z.string().trim().min(2, 'Enter the name').max(120),
 
 const schema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), email, ...person, student_ids: ids, customer_ids: ids, mode: z.enum(['password', 'invite']), password: password.optional() }),
+  z.object({ action: z.literal('create_driver'), email, driver_id: z.string().uuid(), mode: z.enum(['password', 'invite']), password: password.optional() }),
+  z.object({ action: z.literal('remove_driver_login'), driver_id: z.string().uuid() }),
   z.object({ action: z.literal('send_reset'), user_id: z.string().uuid() }),
   z.object({ action: z.literal('set_password'), user_id: z.string().uuid(), password }),
   z.object({ action: z.literal('set_banned'), user_id: z.string().uuid(), banned: z.boolean() }),
@@ -73,10 +75,32 @@ export async function handlePortalAccounts(req: ApiRequest, env: ApiEnv, fetchIm
     const redirect = /^https?:\/\/[^\s]+$/.test(base) ? `${base}/reset-password` : '';
     const redirectQ = redirect ? `?redirect_to=${encodeURIComponent(redirect)}` : '';
 
-    /** customer-portal logins only: never staff, and only logins that actually have a link */
+    /** family / customer / driver logins only: never staff, and only logins that actually have a link */
+    const isManaged = async (userId: string) => (await rpc<boolean>('portal_admin_has_links', { p_user: userId })) || (await rpc<boolean>('driver_admin_is_driver', { p_user: userId }));
     const requirePortalUser = async (userId: string) => {
       if (await rpc<boolean>('portal_admin_is_staff', { p_user: userId })) throw new HttpError(403, 'That is a staff account — manage it in User Management.');
-      if (!(await rpc<boolean>('portal_admin_has_links', { p_user: userId }))) throw new HttpError(404, 'That login is not a customer or parent account.');
+      if (!(await isManaged(userId))) throw new HttpError(404, 'That login is not a customer, parent or driver account.');
+    };
+    /** find the login for an email, or create it (with a temporary password, or by emailing an invitation) */
+    const findOrCreateLogin = async (mail: string, mode: 'password' | 'invite', pw: string | undefined, meta: Record<string, unknown>) => {
+      const existing = await rpc<string | null>('portal_admin_find_user', { p_email: mail });
+      if (existing) {
+        if (await rpc<boolean>('portal_admin_is_staff', { p_user: existing })) throw new HttpError(409, 'That email belongs to a staff account. Use a different email.');
+        return { userId: existing, created: false };
+      }
+      const r = mode === 'password'
+        ? await call('/auth/v1/admin/users', { method: 'POST', body: { email: mail, password: pw, email_confirm: true, user_metadata: { ...meta, must_change_password: true } } })
+        : await call(`/auth/v1/invite${redirectQ}`, { method: 'POST', body: { email: mail, data: meta } });
+      if (!r.ok) {
+        const msg = String((r.json as { msg?: string; message?: string } | null)?.msg ?? (r.json as { message?: string } | null)?.message ?? '');
+        if (/rate limit/i.test(msg)) throw new HttpError(429, 'Supabase’s email limit has been reached. Add your own email sender (SMTP) in Supabase, or try again later.');
+        if (/password/i.test(msg)) throw new HttpError(400, 'That password was rejected by the password rules. Try a longer, less common one.');
+        if (/email/i.test(msg) && /invalid/i.test(msg)) throw new HttpError(400, 'That email address was not accepted.');
+        throw new HttpError(502, 'Could not create the login.');
+      }
+      const id = (r.json as { id?: string } | null)?.id;
+      if (!id) throw new HttpError(502, 'Could not create the login.');
+      return { userId: id, created: true };
     };
     const getUser = async (userId: string) => {
       const r = await call(`/auth/v1/admin/users/${userId}`);
@@ -117,6 +141,31 @@ export async function handlePortalAccounts(req: ApiRequest, env: ApiEnv, fetchIm
           throw e;
         }
       }
+      case 'create_driver': {
+        if (input.mode === 'password' && !input.password) return fail(400, 'Enter a password, or choose to email an invitation instead.');
+        const name = (await call(`/rest/v1/drivers?id=eq.${input.driver_id}&is_archived=eq.false&select=full_name,phone`)).json;
+        if (!Array.isArray(name) || name.length !== 1) return fail(404, 'That driver does not exist.');
+        const meta = { full_name: String((name[0] as { full_name: string }).full_name), role_label: 'driver' };
+        const { userId, created } = await findOrCreateLogin(input.email, input.mode, input.password, meta);
+        try {
+          await rpc('driver_admin_link', { p_user: userId, p_driver: input.driver_id, p_by: caller });
+          return ok({ user_id: userId, email: input.email, created, mode: created ? input.mode : 'existing' });
+        } catch (e) {
+          if (created) await call(`/auth/v1/admin/users/${userId}`, { method: 'DELETE' });
+          throw e;
+        }
+      }
+      case 'remove_driver_login': {
+        const link = await call(`/rest/v1/drivers?id=eq.${input.driver_id}&select=user_id`);
+        const uid = Array.isArray(link.json) ? (link.json[0] as { user_id?: string | null } | undefined)?.user_id : null;
+        if (!uid) return ok({ removed: false });
+        if (await rpc<boolean>('portal_admin_is_staff', { p_user: uid })) throw new HttpError(403, 'That is a staff account.');
+        const r = await call(`/rest/v1/drivers?id=eq.${input.driver_id}`, { method: 'PATCH', body: { user_id: null } });
+        if (!r.ok) return fail(502, 'Could not remove the login.');
+        // delete the auth user only if it is not also a family login
+        if (!(await rpc<boolean>('portal_admin_has_links', { p_user: uid }))) await call(`/auth/v1/admin/users/${uid}`, { method: 'DELETE' });
+        return ok({ removed: true });
+      }
       case 'send_reset': {
         await requirePortalUser(input.user_id);
         const u = await getUser(input.user_id);
@@ -142,7 +191,7 @@ export async function handlePortalAccounts(req: ApiRequest, env: ApiEnv, fetchIm
         const out: Record<string, unknown>[] = [];
         for (const id of input.user_ids) {
           try {
-            if (await rpc<boolean>('portal_admin_is_staff', { p_user: id }) || !(await rpc<boolean>('portal_admin_has_links', { p_user: id }))) continue;
+            if (await rpc<boolean>('portal_admin_is_staff', { p_user: id }) || !(await isManaged(id))) continue;
             const u = await getUser(id);
             out.push({ id, email: u.email, last_sign_in_at: u.last_sign_in_at ?? null, confirmed: !!(u.email_confirmed_at ?? u.confirmed_at), banned: !!u.banned_until && new Date(u.banned_until) > new Date(), must_change_password: u.user_metadata?.must_change_password === true });
           } catch { /* a login that vanished is simply left out */ }

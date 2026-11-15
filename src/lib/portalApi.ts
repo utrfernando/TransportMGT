@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export interface AccountStatus { id: string; email: string; last_sign_in_at: string | null; confirmed: boolean; banned: boolean; must_change_password: boolean }
-export interface CreateResult { user_id: string; email: string; created: boolean; mode: 'password' | 'invite' | 'existing'; linked: { students: number; customers: number } }
+export interface CreateResult { user_id: string; email: string; created: boolean; mode: 'password' | 'invite' | 'existing'; linked?: { students: number; customers: number } }
 
 /** Calls the admin-only server API (it holds the Supabase secret key, the browser never does). */
 export async function callPortalApi<T>(payload: Record<string, unknown>): Promise<T> {
