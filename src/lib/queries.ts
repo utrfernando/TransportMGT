@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured, type Service, type PublicVehicle, type WebsiteContent } from './supabase';
+import { mergeContent } from './siteContent';
 
 export interface QueryState<T> { data: T; loading: boolean; error: string | null; reload: () => void }
 
@@ -44,3 +45,9 @@ export const useWebsiteContent = () => useQuery<Record<string, WebsiteContent>>(
   const rows = unwrap(await supabase.from('website_content').select('*').eq('is_published', true)) as WebsiteContent[];
   return Object.fromEntries(rows.map(r => [r.key, r]));
 }, {});
+
+/** Public website text, merged over defaults so pages always render something sensible. */
+export function useSiteContent() {
+  const q = useWebsiteContent();
+  return { content: mergeContent(q.data), loading: q.loading, reload: q.reload };
+}

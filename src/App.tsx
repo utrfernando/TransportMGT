@@ -39,6 +39,7 @@ const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminWebsite = lazy(() => import('./pages/admin/AdminWebsite'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 
 const Loading: React.FC = () => <div className="flex-1 flex items-center justify-center py-32 text-ink-400 font-bold" role="status">Loading…</div>;
@@ -98,6 +99,7 @@ const App: React.FC = () => (
                   <Route path="notifications" element={<AdminNotifications />} />
                   <Route path="audit" element={<AdminAudit />} />
                   <Route path="inquiries" element={<AdminInquiries />} />
+                  <Route path="website" element={<AdminWebsite />} />
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="*" element={<Navigate to="/admin" replace />} />

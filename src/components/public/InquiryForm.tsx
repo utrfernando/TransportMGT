@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CheckCircle2, MessageCircle, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSettings } from '../../contexts/SettingsContext';
-import { usePublicVehicles } from '../../lib/queries';
+import { usePublicServices, usePublicVehicles } from '../../lib/queries';
 import { whatsappLink } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Field, Input, Select, Textarea } from '../ui/Input';
@@ -32,6 +32,9 @@ type FormValues = z.infer<typeof schema>;
 const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }> = ({ defaultService, defaultVehicle }) => {
   const { settings } = useSettings();
   const vehicles = usePublicVehicles();
+  const services = usePublicServices();
+  // the service list comes from Admin → Website → Services (falls back to the defaults if none are published)
+  const serviceOptions = services.data.length ? services.data.map(x => x.title) : SERVICE_OPTIONS;
   const [done, setDone] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -57,6 +60,8 @@ const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }
   const waText = `Hello ${settings.business_name}, I would like a quotation.\nService: ${w.service || '-'}${w.preferred_vehicle ? `\nVehicle: ${w.preferred_vehicle}` : ''}${w.pickup_location ? `\nFrom: ${w.pickup_location}` : ''}${w.destination ? `\nTo: ${w.destination}` : ''}${w.travel_date ? `\nDate: ${w.travel_date}` : ''}${w.passenger_count ? `\nPassengers: ${w.passenger_count}` : ''}${w.customer_name ? `\nName: ${w.customer_name}` : ''}`;
   const wa = whatsappLink(settings.whatsapp, waText);
 
+  if (services.loading) return <div className="h-64 animate-pulse rounded-3xl bg-ink-100" />;
+
   if (done) {
     return (
       <div className="text-center py-10">
@@ -76,7 +81,7 @@ const InquiryForm: React.FC<{ defaultService?: string; defaultVehicle?: string }
       <Field label="Service required *" error={errors.service?.message}>
         <Select {...register('service')}>
           <option value="">Select a service…</option>
-          {SERVICE_OPTIONS.map(s => <option key={s}>{s}</option>)}
+          {serviceOptions.map(s => <option key={s}>{s}</option>)}
         </Select>
       </Field>
       <Field label="Preferred vehicle">

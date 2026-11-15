@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Bus, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Target, Eye, School, CalendarCheck } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
-import { usePublicServices, usePublicVehicles, useWebsiteContent } from '../lib/queries';
+import { usePublicServices, usePublicVehicles, useSiteContent } from '../lib/queries';
 import { whatsappLink } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/Feedback';
@@ -12,7 +12,8 @@ import { GridSkeleton, PageHero, SectionTitle, ServiceIcon, VehicleCard } from '
 // ---------------------------------------------------------------- About
 export const About: React.FC = () => {
   const { settings } = useSettings();
-  const standards = ['Vehicles serviced regularly and kept clean', 'Valid insurance, revenue licences and emission certificates', 'Courteous, licensed drivers', 'Transparent quotations and monthly school billing', 'Strict privacy for every student record'];
+  const { content } = useSiteContent();
+  const standards = content.about_standards.items;
   return (
     <>
       <PageHero title={`About ${settings.business_name}`} subtitle={settings.tagline} />
@@ -30,9 +31,9 @@ export const About: React.FC = () => {
       </section>
       <section className="bg-cream-100">
         <div className="max-w-4xl mx-auto px-4 py-14">
-          <SectionTitle title="Our service standards" />
+          <SectionTitle title={content.about_standards.title} />
           <ul className="grid gap-3 sm:grid-cols-2">
-            {standards.map(s => <li key={s} className="flex gap-3 rounded-3xl bg-white p-4 shadow-soft"><ShieldCheck className="text-mint-600 shrink-0" /><span className="font-semibold text-ink-700">{s}</span></li>)}
+            {standards.map((s, i) => <li key={i} className="flex gap-3 rounded-3xl bg-white p-4 shadow-soft"><ShieldCheck className="text-mint-600 shrink-0" /><span className="font-semibold text-ink-700">{s}</span></li>)}
           </ul>
         </div>
       </section>
@@ -83,23 +84,20 @@ export const Vehicles: React.FC = () => {
 // ------------------------------------------------------- School transport
 export const SchoolTransport: React.FC = () => {
   const { settings } = useSettings();
-  const content = useWebsiteContent();
-  const intro = content.data.school_transport_intro;
-  const areas = content.data.school_service_areas;
+  const { content } = useSiteContent();
+  const intro = content.school_transport_intro;
+  const areas = content.school_service_areas;
   const wa = whatsappLink(settings.whatsapp, `Hello ${settings.business_name}, I would like to enquire about school transport registration.`);
-  const steps = [
-    { icon: MessageCircle, t: 'Contact us', b: 'Tell us your child\'s school and pickup area.' },
-    { icon: CalendarCheck, t: 'Confirm the route', b: 'We check the route and seat availability.' },
-    { icon: School, t: 'Start riding', b: 'Pay a simple monthly fee per student.' },
-  ];
+  const STEP_ICONS = [MessageCircle, CalendarCheck, School];
+  const steps = content.school_steps.items.map((x, i) => ({ icon: STEP_ICONS[i % STEP_ICONS.length], t: x.title, b: x.text }));
   return (
     <>
-      <PageHero title="School transport" subtitle={intro?.title ?? 'School transport you can trust'} />
+      <PageHero title="School transport" subtitle={intro.title} />
       <section className="max-w-4xl mx-auto px-4 py-14">
-        <p className="text-lg text-ink-700 leading-relaxed">{intro?.body}</p>
+        <p className="text-lg text-ink-700 leading-relaxed">{intro.body}</p>
         <div className="grid gap-5 sm:grid-cols-3 mt-10">
           {steps.map((s, i) => (
-            <div key={s.t} className="rounded-4xl bg-white border border-ink-100 p-6 shadow-soft text-center">
+            <div key={i} className="rounded-4xl bg-white border border-ink-100 p-6 shadow-soft text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center mb-3"><s.icon /></div>
               <p className="text-xs font-extrabold text-sunshine-600">STEP {i + 1}</p>
               <h3 className="font-display font-bold text-lg">{s.t}</h3>
@@ -110,8 +108,8 @@ export const SchoolTransport: React.FC = () => {
       </section>
       <section className="bg-cream-100">
         <div className="max-w-4xl mx-auto px-4 py-12">
-          <h2 className="font-display text-2xl font-extrabold mb-2">{areas?.title ?? 'Service areas'}</h2>
-          <p className="text-ink-600">{areas?.body}</p>
+          <h2 className="font-display text-2xl font-extrabold mb-2">{areas.title}</h2>
+          <p className="text-ink-600">{areas.body}</p>
           <p className="text-sm text-ink-400 mt-4">We never publish student names, addresses or contact details.</p>
           <div className="flex flex-wrap gap-3 mt-6">
             <Link to="/contact?service=School%20transport#inquiry"><Button size="lg">Register an inquiry</Button></Link>

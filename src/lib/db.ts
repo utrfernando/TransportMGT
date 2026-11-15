@@ -10,6 +10,7 @@ export function friendlyError(e: PgError): string {
       if (m.includes('uq_vehicles_reg')) return 'A vehicle with this registration number already exists.';
       if (m.includes('uq_customers_phone')) return 'A customer with this phone number already exists.';
       if (m.includes('uq_driver_licence')) return 'A driver with this licence number already exists.';
+      if (m.includes('services_slug_key')) return 'Another service already uses that web address name. Choose a different one.';
       return 'This record already exists (duplicate value).';
     }
     case '23503': return 'This record is linked to other records and cannot be changed this way. Archive it instead.';

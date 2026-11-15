@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import { BarChart3, ScrollText, TrendingUp, CreditCard, Fuel, Wrench, FileText, Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
+import { Globe, BarChart3, ScrollText, TrendingUp, CreditCard, Fuel, Wrench, FileText, Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,6 +27,7 @@ const NAV = [
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { to: '/admin/inquiries', label: 'Inquiries', icon: Inbox },
   { to: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { to: '/admin/website', label: 'Website', icon: Globe },
   { to: '/admin/settings', label: 'Business Settings', icon: Settings },
   { to: '/admin/users', label: 'User Management', icon: ShieldCheck },
   { to: '/admin/audit', label: 'Audit Log', icon: ScrollText },

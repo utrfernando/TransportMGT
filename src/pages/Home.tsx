@@ -1,29 +1,26 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Bus, ShieldCheck, Clock, BadgeCheck, Wallet, MessageCircle, Phone, Mail, MapPin } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
-import { usePublicServices, usePublicVehicles, useWebsiteContent } from '../lib/queries';
+import { usePublicServices, usePublicVehicles, useSiteContent } from '../lib/queries';
 import { whatsappLink } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/Feedback';
 import InquiryForm from '../components/public/InquiryForm';
 import { GridSkeleton, SectionTitle, ServiceCard, VehicleCard } from '../components/public/bits';
 
-const WHY = [
-  { icon: ShieldCheck, title: 'Safety first', text: 'Well-maintained vehicles with valid insurance and licences.' },
-  { icon: Clock, title: 'Always punctual', text: 'Fixed schedules for school runs and on-time hires.' },
-  { icon: BadgeCheck, title: 'Experienced drivers', text: 'Courteous, professional drivers you can rely on.' },
-  { icon: Wallet, title: 'Fair pricing', text: 'Clear quotations with no hidden charges.' },
-];
+const WHY_ICONS = [ShieldCheck, Clock, BadgeCheck, Wallet];  // icons cycle in order; text comes from Admin → Website
 
 const Home: React.FC = () => {
   const { settings } = useSettings();
   const services = usePublicServices();
   const vehicles = usePublicVehicles();
-  const content = useWebsiteContent();
+  const { content } = useSiteContent();
+  const navigate = useNavigate();
   const wa = whatsappLink(settings.whatsapp, `Hello ${settings.business_name}, I would like to enquire about your transport services.`);
-  const why = content.data.why_choose_us;
+  const hero = content.home_hero;
+  const why = content.why_choose_us;
 
   return (
     <>
@@ -32,15 +29,15 @@ const Home: React.FC = () => {
         <div className="absolute inset-0 bg-dots opacity-30" />
         <div className="relative max-w-7xl mx-auto px-4 py-16 sm:py-24 grid lg:grid-cols-2 gap-10 items-center">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="inline-block rounded-full bg-white/60 backdrop-blur px-4 py-1 text-xs font-extrabold text-mint-700 mb-5">Schools · Tours · Private hires</span>
+            <span className="inline-block rounded-full bg-white/60 backdrop-blur px-4 py-1 text-xs font-extrabold text-mint-700 mb-5">{hero.badge}</span>
             <h1 className="font-display text-4xl sm:text-6xl font-extrabold text-ink-900 leading-[1.05]">
-              Safe rides for <span className="text-sunshine-600">every journey</span>
+              {hero.title} <span className="text-sunshine-600">{hero.highlight}</span>
             </h1>
-            <p className="mt-5 text-lg text-ink-800/80 max-w-lg">{settings.tagline}. Daily school transport and bus, van and tuk tuk hire — with or without a driver.</p>
+            <p className="mt-5 text-lg text-ink-800/80 max-w-lg">{hero.body || `${settings.tagline}. Daily school transport and bus, van and tuk tuk hire — with or without a driver.`}</p>
             <div className="flex flex-wrap gap-3 mt-8">
-              <Link to="/contact#inquiry"><Button variant="sunshine" size="lg">Get a Quote <ArrowRight size={18} /></Button></Link>
+              <Link to="/contact#inquiry"><Button variant="sunshine" size="lg">{hero.cta_primary} <ArrowRight size={18} /></Button></Link>
               {wa
-                ? <a href={wa} target="_blank" rel="noreferrer"><Button variant="secondary" size="lg"><MessageCircle size={18} /> WhatsApp us</Button></a>
+                ? <a href={wa} target="_blank" rel="noreferrer"><Button variant="secondary" size="lg"><MessageCircle size={18} /> {hero.cta_secondary}</Button></a>
                 : <Link to="/services"><Button variant="secondary" size="lg">Our services</Button></Link>}
             </div>
           </motion.div>
@@ -56,7 +53,7 @@ const Home: React.FC = () => {
 
       {/* Services */}
       <section className="max-w-7xl mx-auto px-4 py-16">
-        <SectionTitle eyebrow="What we do" title="Our services" subtitle="From the daily school run to a full-day tour, we have a vehicle and a driver for it." />
+        <SectionTitle eyebrow="What we do" title={content.home_services.title} subtitle={content.home_services.body} />
         {services.loading ? <GridSkeleton n={4} /> : services.data.length === 0
           ? <EmptyState title="Services coming soon" message="Please contact us for details." />
           : <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">{services.data.slice(0, 4).map((s, i) => <ServiceCard key={s.id} service={s} index={i} />)}</div>}
@@ -66,24 +63,23 @@ const Home: React.FC = () => {
       {/* Featured vehicles */}
       <section className="bg-cream-100">
         <div className="max-w-7xl mx-auto px-4 py-16">
-          <SectionTitle eyebrow="Our fleet" title="Featured vehicles" subtitle="Clean, comfortable and regularly serviced." />
+          <SectionTitle eyebrow="Our fleet" title={content.home_fleet.title} subtitle={content.home_fleet.body} />
           {vehicles.loading ? <GridSkeleton /> : vehicles.data.length === 0
-            ? <EmptyState icon={<Bus size={36} strokeWidth={1.5} />} title="Fleet details coming soon" message="Contact us for the vehicles available for your trip." actionLabel="Contact us" onAction={() => { window.location.href = '/contact'; }} />
+            ? <EmptyState icon={<Bus size={36} strokeWidth={1.5} />} title="Fleet details coming soon" message="Contact us for the vehicles available for your trip." actionLabel="Contact us" onAction={() => navigate('/contact')} />
             : <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{vehicles.data.slice(0, 3).map(v => <VehicleCard key={v.id} vehicle={v} />)}</div>}
         </div>
       </section>
 
       {/* Why us */}
       <section className="max-w-7xl mx-auto px-4 py-16">
-        <SectionTitle center eyebrow="Why choose us" title={why?.title ?? 'Why choose us'} subtitle={why?.body ?? undefined} />
+        <SectionTitle center eyebrow="Why choose us" title={why.title} subtitle={why.body || undefined} />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {WHY.map(w => (
-            <div key={w.title} className="text-center rounded-4xl bg-white border border-ink-100 p-6 shadow-soft">
-              <div className="mx-auto w-14 h-14 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center mb-4"><w.icon size={26} /></div>
+          {why.items.map((w, i) => { const Icon = WHY_ICONS[i % WHY_ICONS.length]; return (
+            <div key={i} className="text-center rounded-4xl bg-white border border-ink-100 p-6 shadow-soft">
+              <div className="mx-auto w-14 h-14 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center mb-4"><Icon size={26} /></div>
               <h3 className="font-display font-bold text-lg text-ink-900">{w.title}</h3>
               <p className="text-sm text-ink-500 mt-1">{w.text}</p>
-            </div>
-          ))}
+            </div>); })}
         </div>
       </section>
 

@@ -10,7 +10,7 @@ Supabase (Postgres, Auth, Storage, Row Level Security) · jsPDF / write-excel-fi
 
 | Area | Highlights |
 |------|-----------|
-| Public website | Home, About, Services, Vehicles, School Transport, Contact, validated inquiry form (+ WhatsApp), 404 page |
+| Public website | Home, About, Services, Vehicles, School Transport, Contact, validated inquiry form (+ WhatsApp), 404 page — **all text, services and vehicles are edited from Admin → Website** |
 | Admin sign-in | Email/password, password reset, `OWNER` / `ADMIN` roles, no public registration, deactivation |
 | Fleet | Vehicles (photos, expiry dates, public listing), drivers, documents & renewals, maintenance, fuel |
 | School transport | Schools, students, routes with stops, history-preserving route assignments |
@@ -99,6 +99,14 @@ Run `npm run security-check` after every database change and after deployment. I
 7. **Backups:** enable daily backups / point-in-time recovery in Supabase (*Database → Backups*; paid plans) or schedule a
    periodic `pg_dump`. Financial records are the business — keep an off-site copy.
 
+## Editing the public website
+
+*Admin → Website* controls what visitors see: the home-page banner and headings, “Why choose us” cards, About-page standards,
+school-transport text and steps, the **Services** list (add, hide, reorder — also feeds the inquiry form's “Service required”
+list) and the **Vehicles** shown on the site (title, text, photo, order). Name, logo, contact details, social links, About text,
+mission and vision are in *Business Settings*. “Restore original wording” undoes text edits on a tab. Nothing private can be
+published from here: registration numbers, notes and student data are never part of the public data.
+
 ## Monthly routine
 
 1. *Student Billing → Generate invoices* for the month (safe to run again; nothing is duplicated).
@@ -112,5 +120,5 @@ Run `npm run security-check` after every database change and after deployment. I
 - Alerts are in-app only; there are no automatic email/SMS reminders.
 - New administrators are created with `npm run create-admin` on a trusted computer (no in-app invite email), so the secret key
   never reaches the browser.
-- Vehicle photos are visible to admins only; the public gets one image per listing, uploaded in the vehicle form.
+- Vehicle photos are visible to admins only; the public gets one image per listing, managed in Admin → Website → Vehicles.
 - Reports are generated on demand; there is no scheduled emailing of reports.
