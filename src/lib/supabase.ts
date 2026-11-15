@@ -130,3 +130,36 @@ export interface TransportRoute {
 }
 export interface RouteStop { id: string; route_id: string; stop_type: 'pickup' | 'dropoff'; name: string; sequence: number; scheduled_time: string | null }
 export interface StudentRouteAssignment { id: string; student_id: string; route_id: string; start_date: string; end_date: string | null }
+
+// ------------------------------------------------------------------
+// Phase 3 entities
+// ------------------------------------------------------------------
+export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'card' | 'other';
+
+export interface Invoice {
+  id: string; invoice_number: string; student_id: string; school_id: string; billing_month: string;
+  monthly_fee: number; previous_balance: number; discount: number; adjustment: number; total_payable: number;
+  amount_paid: number; balance: number; status: InvoiceStatus; due_date: string; notes: string | null;
+}
+
+export interface Payment {
+  id: string; reference: string; payment_date: string; amount: number; method: PaymentMethod; category: string;
+  invoice_id: string | null; booking_id: string | null; student_id: string | null; vehicle_id: string | null;
+  notes: string | null; created_at: string;
+}
+
+export type BookingStatus = 'inquiry' | 'quotation_sent' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+export type HireType = 'bus_hire' | 'van_hire' | 'tuk_tuk_hire' | 'private' | 'other';
+export type DriverArrangement = 'owner_drives' | 'external_driver' | 'vehicle_only';
+
+export interface Booking {
+  id: string; reference: string; customer_id: string; vehicle_id: string; hire_type: HireType; start_at: string; end_at: string;
+  pickup_location: string | null; destination: string | null; return_location: string | null; passenger_count: number | null;
+  distance_km: number | null; agreed_price: number; advance_amount: number; fuel_cost: number; other_expenses: number;
+  arrangement: DriverArrangement; assigned_driver_id: string | null; status: BookingStatus; notes: string | null;
+}
+
+export interface DriverAssignment {
+  id: string; booking_id: string; driver_id: string; agreed_fee: number; advance_paid: number; payment_status: 'unpaid' | 'partially_paid' | 'paid';
+}

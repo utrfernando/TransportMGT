@@ -19,6 +19,10 @@ import AdminCustomers from './pages/admin/AdminCustomers';
 import { AdminSchools, AdminSchoolDetail } from './pages/admin/AdminSchools';
 import { AdminStudents, AdminStudentDetail } from './pages/admin/AdminStudents';
 import { AdminRoutes } from './pages/admin/AdminRoutes';
+import AdminBilling from './pages/admin/AdminBilling';
+import AdminBookings from './pages/admin/AdminBookings';
+import AdminCalendar from './pages/admin/AdminCalendar';
+import AdminPayments from './pages/admin/AdminPayments';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminUsers from './pages/admin/AdminUsers';
 
@@ -61,6 +65,10 @@ const App: React.FC = () => (
               <Route path="students" element={<AdminStudents />} />
               <Route path="students/:id" element={<AdminStudentDetail />} />
               <Route path="routes" element={<AdminRoutes />} />
+              <Route path="billing" element={<AdminBilling />} />
+              <Route path="bookings" element={<AdminBookings />} />
+              <Route path="calendar" element={<AdminCalendar />} />
+              <Route path="payments" element={<AdminPayments />} />
               <Route path="inquiries" element={<AdminInquiries />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="users" element={<AdminUsers />} />

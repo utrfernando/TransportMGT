@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import { School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
+import { Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,10 @@ const NAV = [
   { to: '/admin/schools', label: 'Schools', icon: School },
   { to: '/admin/students', label: 'Students', icon: GraduationCap },
   { to: '/admin/routes', label: 'School Routes', icon: Route },
+  { to: '/admin/billing', label: 'Student Billing', icon: Receipt },
+  { to: '/admin/bookings', label: 'Hire Bookings', icon: CalendarCheck },
+  { to: '/admin/calendar', label: 'Calendar', icon: CalendarDays },
+  { to: '/admin/payments', label: 'Payments', icon: Wallet },
   { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/drivers', label: 'Drivers', icon: UserRound },
   { to: '/admin/inquiries', label: 'Inquiries', icon: Inbox },

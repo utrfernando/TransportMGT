@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { MessageCircle, Phone, Search } from 'lucide-react';
 import { supabase, type Inquiry, type InquiryStatus } from '../../lib/supabase';
@@ -6,6 +7,8 @@ import { useQuery } from '../../lib/queries';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useToast } from '../../contexts/ToastContext';
 import { whatsappLink } from '../../lib/utils';
+import { friendlyError, unwrap } from '../../lib/db';
+import { localInputToIso } from '../../lib/time';
 import { AdminHeader, Pager, Table, Td } from '../../components/admin/ui';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +23,56 @@ const STATUSES: { v: InquiryStatus; label: string }[] = [
 ];
 const tone = (s: InquiryStatus) => ({ new: 'sunshine', contacted: 'mint', quotation_sent: 'lavender', converted: 'green', closed: 'ink' } as const)[s];
 
+const ConvertModal: React.FC<{ inquiry: Inquiry | null; onClose: () => void; onDone: () => void }> = ({ inquiry, onClose, onDone }) => {
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [vehicle, setVehicle] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [price, setPrice] = useState('');
+  const [arr, setArr] = useState('owner_drives');
+  const [driver, setDriver] = useState('');
+  const [busy, setBusy] = useState(false);
+  const opts = useQuery(async () => {
+    const [v, d] = await Promise.all([
+      supabase.from('vehicles').select('id,name,seating_capacity').eq('is_archived', false).eq('status', 'active').order('name'),
+      supabase.from('drivers').select('id,full_name,is_owner').eq('is_archived', false).eq('status', 'active').order('full_name'),
+    ]);
+    return { vehicles: unwrap(v) as { id: string; name: string; seating_capacity: number }[], drivers: unwrap(d) as { id: string; full_name: string; is_owner: boolean }[] };
+  }, { vehicles: [] as { id: string; name: string; seating_capacity: number }[], drivers: [] as { id: string; full_name: string; is_owner: boolean }[] });
+  const valid = vehicle && start && end && end > start && (arr !== 'external_driver' || driver);
+  const submit = async () => {
+    if (!inquiry) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc('convert_inquiry_to_booking', {
+      p_inquiry: inquiry.id, p_vehicle: vehicle, p_start: localInputToIso(start), p_end: localInputToIso(end), p_price: Number(price || 0),
+      p_arrangement: arr, p_driver: arr === 'vehicle_only' ? null : (driver || null),
+    });
+    setBusy(false);
+    if (error) { toast.error(friendlyError(error)); return; }
+    toast.success('Customer and booking created from the inquiry');
+    onDone(); navigate(`/admin/bookings?open=${data as string}`);
+  };
+  return (
+    <Modal open={!!inquiry} onClose={onClose} title={`Convert ${inquiry?.reference ?? ''} to booking`}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink-600">The customer ({inquiry?.customer_name}) is created — or matched by phone number — and the trip details are copied over. The booking starts as an “inquiry”; confirm it once availability is checked.</p>
+        <Field label="Vehicle *"><Select value={vehicle} onChange={e => setVehicle(e.target.value)}><option value="">Select…</option>{opts.data.vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.seating_capacity} seats)</option>)}</Select></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start (Sri Lanka time) *"><Input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></Field>
+          <Field label="End *"><Input type="datetime-local" value={end} min={start} onChange={e => setEnd(e.target.value)} /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Agreed price"><Input inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} /></Field>
+          <Field label="Driver arrangement"><Select value={arr} onChange={e => { setArr(e.target.value); setDriver(''); }}><option value="owner_drives">Owner drives</option><option value="external_driver">External driver</option><option value="vehicle_only">Vehicle only</option></Select></Field>
+        </div>
+        {arr === 'external_driver' && <Field label="Driver *"><Select value={driver} onChange={e => setDriver(e.target.value)}><option value="">Select…</option>{opts.data.drivers.filter(d => !d.is_owner).map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)}</Select></Field>}
+        <div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button loading={busy} disabled={!valid} onClick={submit}>Create booking</Button></div>
+      </div>
+    </Modal>
+  );
+};
+
 const AdminInquiries: React.FC = () => {
   const toast = useToast();
   const { settings } = useSettings();
@@ -29,6 +82,7 @@ const AdminInquiries: React.FC = () => {
   const [open, setOpen] = useState<Inquiry | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState<Inquiry | null>(null);
 
   const list = useQuery(async () => {
     let q = supabase.from('public_inquiries').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
@@ -112,10 +166,13 @@ const AdminInquiries: React.FC = () => {
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={2000} />
             </Field>
             <div className="flex justify-end"><Button loading={saving} onClick={() => save({ admin_notes: notes })}>Save notes</Button></div>
-            <p className="text-xs text-ink-400">Converting an inquiry into a customer and booking arrives with the booking module (Phase 3).</p>
+            {open.status !== 'converted'
+              ? <div className="flex justify-end"><Button variant="sunshine" onClick={() => setConverting(open)}>Convert to booking</Button></div>
+              : <p className="text-xs font-semibold text-mint-700">This inquiry has been converted to a booking.</p>}
           </div>
         )}
       </Modal>
+      <ConvertModal inquiry={converting} onClose={() => setConverting(null)} onDone={() => { setConverting(null); setOpen(null); list.reload(); }} />
     </div>
   );
 };
