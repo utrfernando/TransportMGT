@@ -11,7 +11,8 @@ const URL_ = process.env.VITE_SUPABASE_URL, ANON = process.env.VITE_SUPABASE_ANO
 if (!URL_ || !ANON || !SECRET) { console.error('Missing env vars'); process.exit(1); }
 
 const results = [];
-const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   <-- ' + detail}`); };
+// ok === null means "could not be determined": reported as WARN, neither a pass nor a fail
+const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`${ok === null ? 'WARN' : ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   <-- ' + detail}`); };
 const rest = (path, { key = ANON, token, method = 'GET', body, headers = {} } = {}) =>
   fetch(`${URL_}/rest/v1/${path}`, { method, headers: { apikey: key, Authorization: `Bearer ${token ?? key}`, 'Content-Type': 'application/json', Prefer: 'return=representation', ...headers }, body: body ? JSON.stringify(body) : undefined });
 const json = async (r) => { const t = await r.text(); try { return JSON.parse(t); } catch { return t; } };
@@ -62,8 +63,13 @@ try {
   // A real-looking address is needed: Supabase rejects example.com as "invalid" BEFORE it checks whether sign-up is allowed.
   const su = await fetch(`${URL_}/auth/v1/signup`, { method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `secprobe${randomBytes(8).toString('hex')}@gmail.com`, password: randomBytes(10).toString('base64url') + 'aA1!' }) });
   const suj = await json(su); if (suj?.id || suj?.user?.id) created.push(suj.id ?? suj.user.id);
-  check('public sign-up is disabled (Supabase → Authentication → Sign In / Providers → turn OFF "Allow new users to sign up")', suj?.error_code === 'signup_disabled',
-    `sign-up is OPEN (${su.status} ${suj?.error_code ?? 'created'}): strangers can create auth accounts and trigger confirmation emails. They get NO data access, but this can exhaust your email quota and block password-reset emails`);
+  // Supabase applies its email-send rate limit BEFORE it checks whether sign-up is allowed, so once the hourly email quota is
+  // used up (for example by an earlier run) this probe cannot tell. Say so honestly instead of guessing.
+  const limited = suj?.error_code === 'over_email_send_rate_limit';
+  check('public sign-up is disabled (Supabase → Authentication → Sign In / Providers → turn OFF "Allow new users to sign up")',
+    limited ? null : suj?.error_code === 'signup_disabled',
+    limited ? 'CANNOT BE DETERMINED right now: the email rate limit is used up. Confirm the toggle in the dashboard, or re-run in about an hour.'
+      : `sign-up is OPEN (${su.status} ${suj?.error_code ?? 'created'}): strangers can create auth accounts and trigger confirmation emails. They get NO data access, but this can exhaust your email quota and block password-reset emails`);
 
   console.log('\n== 2. Signed-in user with NO admin profile ==');
   const nobody = await makeUser('nobody', null);
@@ -105,6 +111,6 @@ try {
   if (target) await rest(`vehicles?id=eq.${target}`, { key: SECRET, method: 'DELETE' });
   for (const id of created) await authAdmin(`admin/users/${id}`, null, 'DELETE');
 }
-const failed = results.filter(r => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed${failed.length ? `, ${failed.length} FAILED` : ''}`);
+const failed = results.filter(r => r.ok === false), warned = results.filter(r => r.ok === null);
+console.log(`\n${results.filter(r => r.ok).length}/${results.length} checks passed${failed.length ? `, ${failed.length} FAILED` : ''}${warned.length ? `, ${warned.length} could not be determined (WARN)` : ''}`);
 process.exit(failed.length ? 1 : 0);
