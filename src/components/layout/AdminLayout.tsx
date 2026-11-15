@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import { TrendingUp, CreditCard, Fuel, Wrench, FileText, Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
+import { BarChart3, ScrollText, TrendingUp, CreditCard, Fuel, Wrench, FileText, Receipt, CalendarCheck, CalendarDays, Wallet, School, GraduationCap, Route, Users, UserRound, LayoutDashboard, Inbox, Settings, ShieldCheck, ArrowLeft, Menu, Bus, PanelLeftClose, PanelLeftOpen, LogOut, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,9 +24,12 @@ const NAV = [
   { to: '/admin/documents', label: 'Documents & Renewals', icon: FileText },
   { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/drivers', label: 'Drivers', icon: UserRound },
+  { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { to: '/admin/inquiries', label: 'Inquiries', icon: Inbox },
+  { to: '/admin/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin/settings', label: 'Business Settings', icon: Settings },
   { to: '/admin/users', label: 'User Management', icon: ShieldCheck },
+  { to: '/admin/audit', label: 'Audit Log', icon: ScrollText },
 ];
 
 const AdminLayout: React.FC = () => {
@@ -41,9 +44,15 @@ const AdminLayout: React.FC = () => {
 
   useEffect(() => {
     const load = () => supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false).then(({ count }) => setUnread(count ?? 0));
-    load();
+    // create any new alerts (payments due, expiries, servicing...) at most once an hour per browser tab
+    let last = 0; try { last = Number(sessionStorage.getItem('alerts-checked') ?? 0); } catch { /* ignore */ }
+    if (Date.now() - last > 3600_000) {
+      try { sessionStorage.setItem('alerts-checked', String(Date.now())); } catch { /* ignore */ }
+      supabase.rpc('generate_notifications').then(load, load);
+    } else load();
     const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    window.addEventListener('notifications-changed', load);
+    return () => { clearInterval(t); window.removeEventListener('notifications-changed', load); };
   }, []);
 
   const sidebar = (compact: boolean) => (
@@ -88,7 +97,7 @@ const AdminLayout: React.FC = () => {
             {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </button>
           <div className="ml-auto flex items-center gap-3">
-            <Link to="/admin/inquiries" className="relative p-2 rounded-full hover:bg-ink-100 text-ink-600" aria-label="Notifications">
+            <Link to="/admin/notifications" className="relative p-2 rounded-full hover:bg-ink-100 text-ink-600" aria-label="Notifications">
               <Bell size={20} />
               {unread > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-sunshine-400 text-[10px] font-extrabold text-ink-900 flex items-center justify-center px-1">{unread}</span>}
             </Link>

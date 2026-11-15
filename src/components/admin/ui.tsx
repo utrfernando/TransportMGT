@@ -11,7 +11,7 @@ export const AdminHeader: React.FC<{ title: string; subtitle?: string; actions?:
   </div>
 );
 
-export const StatCard: React.FC<{ label: string; value: string; icon?: React.ReactNode; tone?: 'mint' | 'sunshine' | 'lavender' | 'peach' | 'red' | 'ink'; hint?: string }> = ({ label, value, icon, tone = 'mint', hint }) => {
+export const StatCard: React.FC<{ label: string; value: string; icon?: React.ReactNode; tone?: 'mint' | 'sunshine' | 'lavender' | 'peach' | 'red' | 'ink'; hint?: React.ReactNode }> = ({ label, value, icon, tone = 'mint', hint }) => {
   const tones = {
     mint: 'bg-mint-50 text-mint-600', sunshine: 'bg-sunshine-50 text-sunshine-600', lavender: 'bg-lavender-50 text-lavender-600',
     peach: 'bg-peach-50 text-peach-600', red: 'bg-red-50 text-red-500', ink: 'bg-ink-100 text-ink-600',

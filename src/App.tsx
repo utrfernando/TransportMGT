@@ -28,6 +28,9 @@ import AdminExpenses from './pages/admin/AdminExpenses';
 import AdminFuel from './pages/admin/AdminFuel';
 import AdminMaintenance from './pages/admin/AdminMaintenance';
 import AdminDocuments from './pages/admin/AdminDocuments';
+import AdminReports from './pages/admin/AdminReports';
+import AdminNotifications from './pages/admin/AdminNotifications';
+import AdminAudit from './pages/admin/AdminAudit';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminUsers from './pages/admin/AdminUsers';
 
@@ -79,6 +82,9 @@ const App: React.FC = () => (
               <Route path="fuel" element={<AdminFuel />} />
               <Route path="maintenance" element={<AdminMaintenance />} />
               <Route path="documents" element={<AdminDocuments />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="notifications" element={<AdminNotifications />} />
+              <Route path="audit" element={<AdminAudit />} />
               <Route path="inquiries" element={<AdminInquiries />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="users" element={<AdminUsers />} />
